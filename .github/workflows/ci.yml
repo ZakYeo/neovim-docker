@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Neovim ${{ matrix.neovim }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [apt, stable]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Lua tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+
+      - name: Install Neovim from apt
+        if: matrix.neovim == 'apt'
+        run: |
+          sudo apt-get install -y neovim
+
+      - name: Install stable Neovim
+        if: matrix.neovim == 'stable'
+        run: |
+          curl -L https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz -o nvim.tar.gz
+          tar xzf nvim.tar.gz
+          echo "$PWD/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: Show Neovim version
+        run: nvim --version | head -n 3
+
+      - name: Run unit tests
+        run: nvim --headless -u NONE --cmd 'set shadafile=NONE' -c 'set rtp+=.' -c 'luafile tests/run.lua' -c 'qa'
+
+      - name: Check Lua syntax
+        run: luac -p lua/neovim-docker/*.lua plugin/neovim-docker.lua tests/*.lua
+
+      - name: Generate help tags
+        run: nvim --headless -u NONE --cmd 'set shadafile=NONE' -c 'helptags doc' -c 'qa'
+
+      - name: Verify help tags are committed
+        run: git diff --exit-code -- doc/tags
+
+  style:
+    name: Style and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Install StyLua
+        run: |
+          curl -L https://github.com/JohnnyMorganz/StyLua/releases/download/v2.4.1/stylua-linux-x86_64.zip -o stylua.zip
+          unzip stylua.zip
+          chmod +x stylua
+          sudo mv stylua /usr/local/bin/stylua
+
+      - name: Install Selene
+        run: |
+          curl -L https://github.com/Kampfkarren/selene/releases/download/0.29.0/selene-0.29.0-linux.zip -o selene.zip
+          unzip selene.zip
+          chmod +x selene
+          sudo mv selene /usr/local/bin/selene
+
+      - name: Check formatting
+        run: stylua --check lua plugin tests
+
+      - name: Lint Lua
+        run: selene lua plugin tests

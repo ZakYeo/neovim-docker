@@ -1,0 +1,21 @@
+base: lua51
+
+globals:
+  vim:
+    any: true
+  describe:
+    args:
+      - type: string
+      - type: function
+  it:
+    args:
+      - type: string
+      - type: function
+  eq:
+    args:
+      - type: any
+      - type: any
+  truthy:
+    args:
+      - type: any
+

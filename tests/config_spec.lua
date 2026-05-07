@@ -29,4 +29,3 @@ describe("config", function()
     eq("function", type(config.get().ui.open))
   end)
 end)
-

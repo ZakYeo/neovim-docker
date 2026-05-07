@@ -3,7 +3,7 @@ describe("async docker cli", function()
     local docker = require("neovim-docker.docker")
     local seen_args
     docker.setup({
-      runner_async = function(args, opts, callback)
+      runner_async = function(args, _, callback)
         seen_args = args
         callback({
           ok = true,

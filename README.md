@@ -1,5 +1,9 @@
 # neovim-docker
 
+[![CI](https://github.com/ZakYeo/neovim-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakYeo/neovim-docker/actions/workflows/ci.yml)
+[![Live Docker Smoke](https://github.com/ZakYeo/neovim-docker/actions/workflows/live-docker.yml/badge.svg)](https://github.com/ZakYeo/neovim-docker/actions/workflows/live-docker.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A Lua Neovim plugin for managing Docker from native buffers, with LazyVim-friendly defaults.
 
 The default UI uses ordinary Neovim buffers so Docker pages can appear in the user's preferred tab, bufferline, barbar, snacks, lualine, or other buffer UI. Telescope pickers and a floating dashboard are optional entrypoints.
@@ -185,6 +189,8 @@ require("neovim-docker").setup({
 - `q`: close page.
 
 ## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full local workflow.
 
 Run tests with:
 

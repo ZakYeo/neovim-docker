@@ -1,0 +1,9 @@
+std = "lua51+vim"
+
+[lints]
+unused_variable = "warn"
+undefined_variable = "deny"
+shadowing = "allow"
+mixed_table = "allow"
+global_usage = "allow"
+

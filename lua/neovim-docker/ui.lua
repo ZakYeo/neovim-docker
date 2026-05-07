@@ -72,4 +72,3 @@ function M.open(buf, page, opts)
 end
 
 return M
-

@@ -15,7 +15,10 @@ function _G.it(name, fn)
 end
 
 function _G.eq(expected, actual)
-  assert(vim.deep_equal(expected, actual), "\nexpected: " .. vim.inspect(expected) .. "\nactual:   " .. vim.inspect(actual))
+  assert(
+    vim.deep_equal(expected, actual),
+    "\nexpected: " .. vim.inspect(expected) .. "\nactual:   " .. vim.inspect(actual)
+  )
 end
 
 function _G.truthy(value)

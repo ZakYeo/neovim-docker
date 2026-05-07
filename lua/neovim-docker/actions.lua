@@ -156,7 +156,12 @@ local async_handlers = {
     return docker.run_async({ "inspect", image_name(target) }, {}, callback)
   end,
   ["image.history"] = function(target, callback)
-    return docker.list_async({ "history", "--format", "{{json .}}", image_name(target) }, require("neovim-docker.parser").json_lines, {}, callback)
+    return docker.list_async(
+      { "history", "--format", "{{json .}}", image_name(target) },
+      require("neovim-docker.parser").json_lines,
+      {},
+      callback
+    )
   end,
   ["image.prune"] = function(_, callback)
     return docker.run_async({ "image", "prune", "-f" }, {}, callback)
@@ -216,7 +221,11 @@ local async_handlers = {
     return docker.run_compose_async({ "build", target_id(target) }, { cwd = target and target.cwd or nil }, callback)
   end,
   ["compose.service.logs"] = function(target, callback)
-    return docker.run_compose_async({ "logs", "--tail", "200", target_id(target) }, { cwd = target and target.cwd or nil }, callback)
+    return docker.run_compose_async(
+      { "logs", "--tail", "200", target_id(target) },
+      { cwd = target and target.cwd or nil },
+      callback
+    )
   end,
 }
 

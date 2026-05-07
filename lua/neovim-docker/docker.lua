@@ -17,7 +17,7 @@ local function list_extend(left, right)
   return result
 end
 
-local function default_runner(args, opts)
+local function default_runner(_, opts)
   return {
     ok = false,
     code = 1,

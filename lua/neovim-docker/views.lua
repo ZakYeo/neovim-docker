@@ -153,7 +153,8 @@ local function render(page)
   local lines = {
     page.spec.title,
     string.rep("=", #page.spec.title),
-    "state: " .. (page.loading and "loading" or "ready")
+    "state: "
+      .. (page.loading and "loading" or "ready")
       .. " | filter: "
       .. ((page.state.filter and page.state.filter ~= "") and page.state.filter or "<none>")
       .. " | sort: "
@@ -274,7 +275,10 @@ local function run_page_action(page, action_key)
   if action_name == "image.history" then
     local item = current_item(page)
     if item then
-      M.open("image_history", { image = item.Repository and (item.Repository .. ":" .. (item.Tag or "latest")) or item.name or item.id })
+      M.open(
+        "image_history",
+        { image = item.Repository and (item.Repository .. ":" .. (item.Tag or "latest")) or item.name or item.id }
+      )
     end
     return
   end

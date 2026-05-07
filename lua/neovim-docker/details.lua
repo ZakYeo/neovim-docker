@@ -28,4 +28,3 @@ function M.open(title, result, opts)
 end
 
 return M
-
