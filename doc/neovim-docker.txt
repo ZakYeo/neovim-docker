@@ -1,0 +1,85 @@
+*neovim-docker.txt* Docker management for Neovim
+
+==============================================================================
+INTRODUCTION                                           *neovim-docker*
+
+neovim-docker provides async native-buffer Docker pages for containers, images,
+volumes, networks, Compose projects/services, registry workflows, and live logs.
+
+==============================================================================
+COMMANDS                                               *neovim-docker-commands*
+
+:DockerDashboard       Open the Docker dashboard.
+:DockerDashboard!      Open the Docker dashboard in a floating window.
+:DockerContainers      List containers.
+:DockerImages          List images.
+:DockerVolumes         List volumes.
+:DockerNetworks        List networks.
+:DockerCompose         List Compose services for the current directory.
+:DockerComposeCwd [dir]
+                       List Compose services from a chosen working directory.
+:DockerComposeProjects
+                       List Compose projects discovered from Docker labels.
+:DockerComposeFiles [dir]
+                       Discover Compose files in a directory.
+:DockerComposeContainers {project}
+                       List containers for a Compose project.
+:DockerRegistries      Show registry workflow commands.
+:DockerRegistryStatus  Show registry config status from Docker CLI state.
+:DockerLogs {name}     Tail logs for a container.
+:DockerExec {name} [shell]
+                       Open an interactive shell in a container.
+:DockerPull {image}    Pull an image.
+:DockerPush {image}    Push an image.
+:DockerTag {src} {dst} Tag an image.
+:DockerSearch {query}  Search Docker Hub images.
+:DockerImageHistory {image}
+                       Show image history/layers.
+:DockerImagePrune      Prune dangling images.
+:DockerAction {name} {target}
+                       Run an internal action.
+:DockerTelescopeContainers
+                       Pick containers with Telescope if installed.
+:DockerTelescopeImages
+                       Pick images with Telescope if installed.
+:DockerTelescopeVolumes
+                       Pick volumes with Telescope if installed.
+
+==============================================================================
+CONFIGURATION                                           *neovim-docker-config*
+>
+  require("neovim-docker").setup({
+    docker_cmd = "docker",
+    compose_cmd = { "docker", "compose" },
+    timeout = 30000,
+    refresh_interval = 0,
+    ui = {
+      open_strategy = "current",
+      open = nil,
+    },
+    keymaps = {
+      enabled = true,
+    },
+  })
+<
+
+Use ui.open to route Docker buffers through a preferred tab or buffer plugin.
+
+==============================================================================
+BUFFER KEYS                                             *neovim-docker-keys*
+
+r       Refresh the page.
+/       Filter rows.
+x       Clear the active filter.
+o       Cycle sort columns.
+a       Open the action menu.
+?       Open page help.
+i       Inspect/open details.
+l       Tail logs where supported.
+e       Exec into a container where supported.
+s/S/R   Start, stop, or restart where supported.
+d       Remove/down where supported.
+p       Prune where supported.
+q       Close the page.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

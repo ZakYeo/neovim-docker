@@ -1,0 +1,8 @@
+describe("compatibility", function()
+  it("supports the documented minimum Neovim API surface", function()
+    truthy(vim.fn.has("nvim-0.8") == 1)
+    eq("function", type(vim.api.nvim_create_user_command))
+    eq("function", type(vim.keymap.set))
+    eq("function", type(vim.fn.jobstart))
+  end)
+end)

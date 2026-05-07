@@ -1,0 +1,7 @@
+describe("exec", function()
+  it("builds docker exec shell args", function()
+    require("neovim-docker.config").setup({ docker_cmd = "docker", exec_shell = "/bin/bash" })
+    eq({ "docker", "exec", "-it", "abc", "/bin/zsh" }, require("neovim-docker.exec").args("abc", "/bin/zsh"))
+    eq({ "docker", "exec", "-it", "abc", "/bin/bash" }, require("neovim-docker.exec").args("abc"))
+  end)
+end)
