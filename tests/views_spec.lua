@@ -471,7 +471,13 @@ describe("views", function()
       end)
     end)
 
-    eq(nil, vim.fn.maparg("a", "n", false, true).callback)
+    local action_menu_mapping
+    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(page.buf, "n")) do
+      if mapping.lhs == "a" then
+        action_menu_mapping = mapping
+      end
+    end
+    eq(nil, action_menu_mapping and action_menu_mapping.callback)
     local start
     for _, entry in ipairs(added_spec or {}) do
       if type(entry.desc) == "function" and entry.desc() == "start" then

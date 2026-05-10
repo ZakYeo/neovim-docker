@@ -640,7 +640,7 @@ local function setup_which_key_action_menu(page)
   local names = action_menu_entries(page)
   local suffix_index = 1
   local action_index = 1
-  for _, name in ipairs(names) do
+  for _ in ipairs(names) do
     local lhs
     lhs, suffix_index = next_action_menu_lhs(prefix, page.buf, suffix_index)
     if lhs then
