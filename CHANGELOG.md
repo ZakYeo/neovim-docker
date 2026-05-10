@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.6] - 2026-05-10
+
+### Added
+
+- Added optional `which-key.nvim` action menus when which-key is installed.
+- Added `integrations.which_key` configuration for action-menu behavior.
+
 ## [0.1.5] - 2026-05-10
 
 ### Added
