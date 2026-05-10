@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.5] - 2026-05-10
+
+### Added
+
+- Added Compose project lifecycle actions from grouped rows in the Docker containers menu.
+- Added support for Compose project `config_files` labels when running project actions.
+- Added a `volumes` action-menu shortcut from the Docker containers page.
+- Added a `delete` action-menu alias for removing Docker volumes.
+
 ## [0.1.4] - 2026-05-10
 
 ### Added
