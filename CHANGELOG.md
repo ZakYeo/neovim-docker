@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.2] - 2026-05-10
+
+### Added
+
+- Added semantic Docker log highlighting for severity levels, timestamps, service prefixes, success states, and HTTP-style status codes.
+- Added configurable `highlights.logs` groups for mapping log categories to colorscheme highlight groups.
+
+### Fixed
+
+- Kept log highlighting incremental during live tailing to avoid full retained-buffer re-highlighting.
+- Restored log headers and cleared stale highlights when clearing live log buffers.
+
 ## [0.1.1] - 2026-05-10
 
 ### Fixed

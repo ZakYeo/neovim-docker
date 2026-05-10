@@ -53,6 +53,22 @@ CONFIGURATION                                           *neovim-docker-config*
     compose_cmd = { "docker", "compose" },
     log_tail = 200,
     log_max_lines = 5000,
+    highlights = {
+      logs = {
+        error = "DiagnosticError",
+        warn = "DiagnosticWarn",
+        info = "DiagnosticInfo",
+        debug = "Comment",
+        trace = "Comment",
+        success = "DiagnosticOk",
+        timestamp = "Comment",
+        source = "Identifier",
+        http_2xx = "DiagnosticOk",
+        http_3xx = "DiagnosticInfo",
+        http_4xx = "DiagnosticWarn",
+        http_5xx = "DiagnosticError",
+      },
+    },
     timeout = 30000,
     refresh_interval = 0,
     ui = {
@@ -75,6 +91,9 @@ when the hook intentionally declines to open the buffer; that page will not be
 added to navigation history. log_tail controls the initial docker logs --tail
 value. log_max_lines bounds the retained live log output lines in memory while
 docker logs --follow runs. Invalid values fall back to the default cap.
+Live log buffers highlight common severity words, timestamps, service prefixes,
+success states, and standalone 2xx-5xx HTTP-style status numbers. Override
+highlights.logs to map those categories to colorscheme groups.
 
 ==============================================================================
 BUFFER KEYS                                             *neovim-docker-keys*

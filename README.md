@@ -117,6 +117,22 @@ require("neovim-docker").setup({
   exec_shell = "/bin/sh",
   timeout = 30000,
   refresh_interval = 0, -- set > 0 milliseconds for background refresh
+  highlights = {
+    logs = {
+      error = "DiagnosticError",
+      warn = "DiagnosticWarn",
+      info = "DiagnosticInfo",
+      debug = "Comment",
+      trace = "Comment",
+      success = "DiagnosticOk",
+      timestamp = "Comment",
+      source = "Identifier",
+      http_2xx = "DiagnosticOk",
+      http_3xx = "DiagnosticInfo",
+      http_4xx = "DiagnosticWarn",
+      http_5xx = "DiagnosticError",
+    },
+  },
   ui = {
     open_strategy = "current", -- current, split, vsplit, tab, float
     open = nil, -- custom function(page) for buffer/tab plugins
@@ -138,6 +154,8 @@ require("neovim-docker").setup({
 ```
 
 Docker pages are created as listed `nofile` buffers by default. Bufferline/tabline plugins that show listed buffers should pick them up with names like `docker://containers/docker-containers-12`; plugins configured to hide `nofile` buffers or custom URI schemes may need their filters adjusted in the parent app config.
+
+Live log buffers highlight common severity words, timestamps, Compose/service prefixes, success states, and standalone 2xx-5xx HTTP-style status numbers. Override `highlights.logs` to map those categories to your preferred colorscheme groups.
 
 To route Docker pages into a favorite UI plugin, provide `ui.open`:
 
