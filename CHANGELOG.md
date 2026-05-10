@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.7] - 2026-05-10
+
+### Fixed
+
+- Removed a Selene lint warning from the which-key action menu implementation.
+
 ## [0.1.6] - 2026-05-10
 
 ### Added
