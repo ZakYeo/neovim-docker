@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.10] - 2026-05-10
+
+### Fixed
+
+- Stabilized stable Neovim CI coverage for the which-key action menu recursion fix.
+
 ## [0.1.9] - 2026-05-10
 
 ### Fixed
