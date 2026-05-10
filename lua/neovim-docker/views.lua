@@ -11,6 +11,16 @@ local M = {}
 
 local pages = {}
 local compose_project_label = "com.docker.compose.project"
+local compose_project_working_dir_label = "com.docker.compose.project.working_dir"
+local compose_project_config_files_label = "com.docker.compose.project.config_files"
+
+local compose_group_actions = {
+  up = "compose.project.up",
+  start = "compose.project.start",
+  stop = "compose.project.stop",
+  restart = "compose.project.restart",
+  remove = "compose.project.down",
+}
 
 local function is_container_page(page)
   return page and page.kind == "containers"
@@ -23,6 +33,16 @@ end
 local function compose_project_name(item)
   local labels = item and item.labels or {}
   return labels[compose_project_label]
+end
+
+local function first_compose_label(containers, label)
+  for _, container in ipairs(containers or {}) do
+    local labels = container.labels or {}
+    if labels[label] and labels[label] ~= "" then
+      return labels[label]
+    end
+  end
+  return ""
 end
 
 local function lower(value)
@@ -198,6 +218,8 @@ end
 
 local function create_compose_group(project_name, containers, expanded)
   local marker = expanded and "[-]" or "[+]"
+  local cwd = first_compose_label(containers, compose_project_working_dir_label)
+  local config_files = first_compose_label(containers, compose_project_config_files_label)
   return {
     __docker_view_kind = "compose_project",
     id = marker,
@@ -205,6 +227,13 @@ local function create_compose_group(project_name, containers, expanded)
     image = "compose project",
     status = tostring(#containers) .. " container" .. (#containers == 1 and "" or "s"),
     project = project_name,
+    cwd = cwd,
+    config_files = config_files,
+    labels = {
+      [compose_project_label] = project_name,
+      [compose_project_working_dir_label] = cwd,
+      [compose_project_config_files_label] = config_files,
+    },
     containers = containers,
   }
 end
@@ -350,17 +379,20 @@ local function refresh(page)
 end
 
 local function run_page_action(page, action_key)
+  local item = action_key == "prune" and {} or current_item(page)
   local action_name = page.spec.actions[action_key]
+  if action_key ~= "prune" and is_compose_group(item) then
+    action_name = compose_group_actions[action_key]
+  end
   if not action_name then
     return
   end
 
-  if action_key ~= "prune" and is_compose_group(current_item(page)) then
+  if not item and action_key ~= "prune" then
     return
   end
 
   if action_name == "container.logs" then
-    local item = current_item(page)
     if item then
       logs.open(item.id or item.name)
     end
@@ -368,7 +400,6 @@ local function run_page_action(page, action_key)
   end
 
   if action_name == "compose.service.logs" then
-    local item = current_item(page)
     if item then
       local target = vim.tbl_extend("force", item, { cwd = page.opts.cwd })
       actions.run_async(action_name, target, {}, function(result)
@@ -381,7 +412,6 @@ local function run_page_action(page, action_key)
   end
 
   if action_name == "image.history" then
-    local item = current_item(page)
     if item then
       M.open(
         "image_history",
@@ -392,17 +422,12 @@ local function run_page_action(page, action_key)
   end
 
   if action_name == "container.exec" then
-    local item = current_item(page)
     if item then
       exec.open(item.id or item.name)
     end
     return
   end
 
-  local item = action_key == "prune" and {} or current_item(page)
-  if not item and action_key ~= "prune" then
-    return
-  end
   if type(item) == "table" and page.opts.cwd then
     item = vim.tbl_extend("force", item, { cwd = page.opts.cwd })
   end
@@ -448,7 +473,7 @@ local function help(page)
       "/ filter rows",
       "x clear filter",
       "o cycle sort column",
-      "a open action menu",
+      "a open action menu (Compose project rows include up/start/stop/restart/down)",
       "<CR> expand/collapse Compose projects or inspect/open details",
       "i inspect/open details",
       "l tail logs where supported",
@@ -494,7 +519,12 @@ end
 local function action_menu(page)
   local names = {}
   local by_label = {}
-  for key in pairs(page.spec.actions or {}) do
+  local item = current_item(page)
+  local available_actions = page.spec.actions or {}
+  if is_container_page(page) and is_compose_group(item) then
+    available_actions = compose_group_actions
+  end
+  for key in pairs(available_actions) do
     names[#names + 1] = key
     by_label[key] = key
   end

@@ -190,7 +190,7 @@ Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigat
 - `:DockerComposeProjects` lists existing Compose projects discovered from Docker labels.
 - `:DockerComposeFiles [dir]` discovers Compose files in a directory.
 - `:DockerComposeContainers <project>` lists containers for a Compose project.
-- `:DockerContainers` groups containers by Compose project when Docker Compose labels are present. Press `<CR>` on a project row to expand/collapse its containers; press `<CR>` on a container row to inspect it.
+- `:DockerContainers` groups containers by Compose project when Docker Compose labels are present. Press `<CR>` on a project row to expand/collapse its containers; use `s`/`S`/`R`/`d` or the action menu on that row to start, stop, restart, up, or down the Compose project. Press `<CR>` on a container row to inspect it.
 - `:DockerRegistries` opens registry command guidance.
 - `:DockerRegistryStatus` shows registry config status from Docker CLI state.
 - `:DockerLogs <container>` tails live logs.
@@ -216,10 +216,10 @@ Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigat
 - `b`: go back from the help overlay.
 - `l`: tail selected container logs.
 - `e`: exec shell into selected container.
-- `s`: start selected item where supported.
-- `S`: stop selected item where supported.
-- `R`: restart selected item where supported.
-- `d`: remove/down selected item where supported.
+- `s`: start selected item where supported, including Compose project rows in `:DockerContainers`.
+- `S`: stop selected item where supported, including Compose project rows in `:DockerContainers`.
+- `R`: restart selected item where supported, including Compose project rows in `:DockerContainers`.
+- `d`: remove/down selected item where supported, including Compose project rows in `:DockerContainers`.
 - `p`: prune where supported.
 - `q`: close page.
 

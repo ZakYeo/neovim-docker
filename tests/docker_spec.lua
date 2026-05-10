@@ -61,6 +61,60 @@ describe("docker cli", function()
     eq("api", result.items[1].name)
   end)
 
+  it("builds compose calls with configured compose files", function()
+    local docker = require("neovim-docker.docker")
+    docker.setup({
+      runner = function(args, opts)
+        eq({
+          "docker",
+          "compose",
+          "-f",
+          "/tmp/project/custom.yml",
+          "-f",
+          "/tmp/project/compose.override.yml",
+          "ps",
+          "-a",
+          "--format",
+          "json",
+        }, args)
+        eq("/tmp/project", opts.cwd)
+        return {
+          ok = true,
+          code = 0,
+          stdout = { '[{"Name":"api","Service":"api","State":"running"}]' },
+          stderr = {},
+        }
+      end,
+    })
+
+    local result = docker.compose_services({
+      cwd = "/tmp/project",
+      config_files = "/tmp/project/custom.yml,/tmp/project/compose.override.yml",
+    })
+    eq(true, result.ok)
+    eq("api", result.items[1].name)
+  end)
+
+  it("preserves multiple compose config files from labels", function()
+    local docker = require("neovim-docker.docker")
+    docker.setup({
+      runner = function()
+        return {
+          ok = true,
+          code = 0,
+          stdout = {
+            '{"ID":"abc","Names":"demo-api-1","State":"running","Labels":"com.docker.compose.project=demo,com.docker.compose.project.config_files=/tmp/demo/custom.yml,/tmp/demo/compose.override.yml,com.docker.compose.service=api,com.docker.compose.project.working_dir=/tmp/demo"}',
+          },
+          stderr = {},
+        }
+      end,
+    })
+
+    local result = docker.compose_projects()
+    eq(true, result.ok)
+    eq("/tmp/demo/custom.yml,/tmp/demo/compose.override.yml", result.items[1].config_files)
+  end)
+
   it("groups compose projects from container labels", function()
     local docker = require("neovim-docker.docker")
     docker.setup({

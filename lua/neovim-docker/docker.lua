@@ -17,6 +17,35 @@ local function list_extend(left, right)
   return result
 end
 
+local function trim(value)
+  return tostring(value or ""):match("^%s*(.-)%s*$")
+end
+
+local function normalize_compose_config_files(config_files)
+  local files = {}
+  if type(config_files) == "table" then
+    for _, file in ipairs(config_files) do
+      local normalized = trim(file)
+      if normalized ~= "" then
+        files[#files + 1] = normalized
+      end
+    end
+    return files
+  end
+
+  if type(config_files) ~= "string" or config_files == "" then
+    return files
+  end
+
+  for file in config_files:gmatch("[^,]+") do
+    local normalized = trim(file)
+    if normalized ~= "" then
+      files[#files + 1] = normalized
+    end
+  end
+  return files
+end
+
 local function default_runner(_, opts)
   return {
     ok = false,
@@ -134,6 +163,15 @@ local function compose_prefix()
   return { opts.compose_cmd }
 end
 
+local function compose_command_args(args, opts)
+  local full_args = compose_prefix()
+  for _, file in ipairs(normalize_compose_config_files(opts and opts.config_files)) do
+    full_args[#full_args + 1] = "-f"
+    full_args[#full_args + 1] = file
+  end
+  return list_extend(full_args, args)
+end
+
 local function error_message(result)
   local stderr = table.concat(result.stderr or {}, "\n")
   if stderr == "" then
@@ -175,7 +213,7 @@ function M.run_async(args, opts, callback)
 end
 
 function M.run_compose(args, opts)
-  local full_args = list_extend(compose_prefix(), args)
+  local full_args = compose_command_args(args, opts)
   local runner = state.runner or default_runner
   local result = runner(full_args, opts or {})
   result.ok = result.ok and result.code == 0
@@ -186,7 +224,7 @@ function M.run_compose(args, opts)
 end
 
 function M.run_compose_async(args, opts, callback)
-  local full_args = list_extend(compose_prefix(), args)
+  local full_args = compose_command_args(args, opts)
   local runner = state.runner_async or default_runner_async
   return runner(full_args, opts or {}, function(result)
     result.ok = result.ok and result.code == 0

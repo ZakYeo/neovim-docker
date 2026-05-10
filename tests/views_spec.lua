@@ -2,7 +2,7 @@ describe("views", function()
   local function setup_container_view(stdout, on_run)
     local docker = require("neovim-docker.docker")
     docker.setup({
-      runner_async = function(args, _, callback)
+      runner_async = function(args, opts, callback)
         if args[2] == "ps" then
           callback({
             ok = true,
@@ -12,7 +12,7 @@ describe("views", function()
           })
         else
           if on_run then
-            on_run(args)
+            on_run(args, opts)
           end
           callback({
             ok = true,
@@ -234,6 +234,7 @@ describe("views", function()
 
     local lines = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
     truthy(lines:find("<CR> expand/collapse Compose projects", 1, true))
+    truthy(lines:find("a open action menu (Compose project rows include up/start/stop/restart/down)", 1, true))
   end)
 
   it("selects the item under the cursor", function()
@@ -341,7 +342,81 @@ describe("views", function()
     eq(1, #page.visible_items)
   end)
 
-  it("does not run container actions on compose group rows", function()
+  it("runs compose project lifecycle actions on compose group rows", function()
+    local ran_actions = {}
+    local ran_opts = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api,com.docker.compose.project.working_dir=/tmp/demo,com.docker.compose.project.config_files=/tmp/demo/compose.yaml"}',
+    }, function(args, opts)
+      ran_actions[#ran_actions + 1] = args
+      ran_opts[#ran_opts + 1] = opts
+    end)
+
+    vim.api.nvim_set_current_buf(page.buf)
+    for _, key in ipairs({ "s", "S", "R", "d" }) do
+      vim.api.nvim_win_set_cursor(0, { 8, 0 })
+      vim.fn.maparg(key, "n", false, true).callback()
+    end
+
+    eq({ "docker", "compose", "-f", "/tmp/demo/compose.yaml", "start" }, ran_actions[1])
+    eq({ "docker", "compose", "-f", "/tmp/demo/compose.yaml", "stop" }, ran_actions[2])
+    eq({ "docker", "compose", "-f", "/tmp/demo/compose.yaml", "restart" }, ran_actions[3])
+    eq({ "docker", "compose", "-f", "/tmp/demo/compose.yaml", "down" }, ran_actions[4])
+    eq("/tmp/demo", ran_opts[1].cwd)
+    eq("/tmp/demo", ran_opts[4].cwd)
+    eq("/tmp/demo", page.visible_items[1].cwd)
+    eq("/tmp/demo/compose.yaml", page.visible_items[1].config_files)
+  end)
+
+  it("runs compose project group actions with multiple configured compose files", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api,com.docker.compose.project.working_dir=/tmp/demo,com.docker.compose.project.config_files=/tmp/demo/custom.yml,/tmp/demo/compose.override.yml"}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("s", "n", false, true).callback()
+
+    eq({
+      "docker",
+      "compose",
+      "-f",
+      "/tmp/demo/custom.yml",
+      "-f",
+      "/tmp/demo/compose.override.yml",
+      "start",
+    }, ran_actions[1])
+    eq("/tmp/demo/custom.yml,/tmp/demo/compose.override.yml", page.visible_items[1].config_files)
+  end)
+
+  it("runs compose project up from the group action menu", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api,com.docker.compose.project.working_dir=/tmp/demo"}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    local original_select = vim.ui.select
+    vim.ui.select = function(items, _, callback)
+      eq(true, vim.tbl_contains(items, "up"))
+      eq(false, vim.tbl_contains(items, "logs"))
+      eq(false, vim.tbl_contains(items, "exec"))
+      eq(false, vim.tbl_contains(items, "inspect"))
+      callback("up")
+    end
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("a", "n", false, true).callback()
+    vim.ui.select = original_select
+
+    eq({ "docker", "compose", "up", "-d" }, ran_actions[1])
+  end)
+
+  it("does not open logs, exec, or inspect details on compose group rows", function()
     local ran_actions = {}
     local page = setup_container_view({
       '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
@@ -360,7 +435,7 @@ describe("views", function()
     end
 
     vim.api.nvim_set_current_buf(page.buf)
-    for _, key in ipairs({ "i", "l", "e", "d", "s" }) do
+    for _, key in ipairs({ "i", "l", "e" }) do
       vim.api.nvim_win_set_cursor(0, { 8, 0 })
       vim.fn.maparg(key, "n", false, true).callback()
     end
@@ -370,6 +445,28 @@ describe("views", function()
     eq(0, #ran_actions)
     eq(false, opened_logs)
     eq(false, opened_exec)
+  end)
+
+  it("runs container lifecycle actions on individual compose container rows", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("<CR>", "n", false, true).callback()
+    for _, key in ipairs({ "s", "S", "R", "d" }) do
+      vim.api.nvim_win_set_cursor(0, { 9, 0 })
+      vim.fn.maparg(key, "n", false, true).callback()
+    end
+
+    eq({ "docker", "start", "abc" }, ran_actions[1])
+    eq({ "docker", "stop", "abc" }, ran_actions[2])
+    eq({ "docker", "restart", "abc" }, ran_actions[3])
+    eq({ "docker", "rm", "abc" }, ran_actions[4])
   end)
 
   it("keeps enter inspect behavior for container rows", function()

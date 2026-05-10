@@ -49,6 +49,48 @@ describe("actions", function()
     eq({ "docker", "compose", "stop", "api" }, calls[6])
   end)
 
+  it("dispatches compose project commands with configured compose files", function()
+    local calls = {}
+    local opts_seen = {}
+    local docker = require("neovim-docker.docker")
+    docker.setup({
+      runner = function(args, opts)
+        calls[#calls + 1] = args
+        opts_seen[#opts_seen + 1] = opts
+        return { ok = true, code = 0, stdout = {}, stderr = {} }
+      end,
+    })
+
+    local target = {
+      cwd = "/tmp/project",
+      config_files = "/tmp/project/custom.yml,/tmp/project/compose.override.yml",
+    }
+    local actions = require("neovim-docker.actions")
+    actions.run("compose.project.start", target)
+    actions.run("compose.project.up", target)
+
+    eq({
+      "docker",
+      "compose",
+      "-f",
+      "/tmp/project/custom.yml",
+      "-f",
+      "/tmp/project/compose.override.yml",
+      "start",
+    }, calls[1])
+    eq({
+      "docker",
+      "compose",
+      "-f",
+      "/tmp/project/custom.yml",
+      "-f",
+      "/tmp/project/compose.override.yml",
+      "up",
+      "-d",
+    }, calls[2])
+    eq("/tmp/project", opts_seen[1].cwd)
+  end)
+
   it("dispatches async actions", function()
     local calls = {}
     local docker = require("neovim-docker.docker")

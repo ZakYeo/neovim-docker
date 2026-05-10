@@ -28,6 +28,13 @@ local function image_name(target)
   return target and (target.name or target.Repository or target.id)
 end
 
+local function compose_opts(target)
+  return {
+    cwd = target and target.cwd or nil,
+    config_files = target and target.config_files or nil,
+  }
+end
+
 local handlers = {
   ["container.start"] = function(target)
     return docker.run({ "start", target_id(target) })
@@ -96,19 +103,19 @@ local handlers = {
     return docker.run_compose({ "restart", target_id(target) }, { cwd = target and target.cwd or nil })
   end,
   ["compose.project.up"] = function(target)
-    return docker.run_compose({ "up", "-d" }, { cwd = target and target.cwd or nil })
+    return docker.run_compose({ "up", "-d" }, compose_opts(target))
   end,
   ["compose.project.down"] = function(target)
-    return docker.run_compose({ "down" }, { cwd = target and target.cwd or nil })
+    return docker.run_compose({ "down" }, compose_opts(target))
   end,
   ["compose.project.start"] = function(target)
-    return docker.run_compose({ "start" }, { cwd = target and target.cwd or nil })
+    return docker.run_compose({ "start" }, compose_opts(target))
   end,
   ["compose.project.stop"] = function(target)
-    return docker.run_compose({ "stop" }, { cwd = target and target.cwd or nil })
+    return docker.run_compose({ "stop" }, compose_opts(target))
   end,
   ["compose.project.restart"] = function(target)
-    return docker.run_compose({ "restart" }, { cwd = target and target.cwd or nil })
+    return docker.run_compose({ "restart" }, compose_opts(target))
   end,
   ["compose.service.up"] = function(target)
     return docker.run_compose({ "up", "-d", target_id(target) }, { cwd = target and target.cwd or nil })
@@ -197,19 +204,19 @@ local async_handlers = {
     return docker.run_compose_async({ "restart", target_id(target) }, { cwd = target and target.cwd or nil }, callback)
   end,
   ["compose.project.up"] = function(target, callback)
-    return docker.run_compose_async({ "up", "-d" }, { cwd = target and target.cwd or nil }, callback)
+    return docker.run_compose_async({ "up", "-d" }, compose_opts(target), callback)
   end,
   ["compose.project.down"] = function(target, callback)
-    return docker.run_compose_async({ "down" }, { cwd = target and target.cwd or nil }, callback)
+    return docker.run_compose_async({ "down" }, compose_opts(target), callback)
   end,
   ["compose.project.start"] = function(target, callback)
-    return docker.run_compose_async({ "start" }, { cwd = target and target.cwd or nil }, callback)
+    return docker.run_compose_async({ "start" }, compose_opts(target), callback)
   end,
   ["compose.project.stop"] = function(target, callback)
-    return docker.run_compose_async({ "stop" }, { cwd = target and target.cwd or nil }, callback)
+    return docker.run_compose_async({ "stop" }, compose_opts(target), callback)
   end,
   ["compose.project.restart"] = function(target, callback)
-    return docker.run_compose_async({ "restart" }, { cwd = target and target.cwd or nil }, callback)
+    return docker.run_compose_async({ "restart" }, compose_opts(target), callback)
   end,
   ["compose.service.up"] = function(target, callback)
     return docker.run_compose_async({ "up", "-d", target_id(target) }, { cwd = target and target.cwd or nil }, callback)

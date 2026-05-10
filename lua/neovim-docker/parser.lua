@@ -1,5 +1,7 @@
 local M = {}
 
+local compose_config_files_label = "com.docker.compose.project.config_files"
+
 local function decode_json(line)
   if vim.json and vim.json.decode then
     return vim.json.decode(line)
@@ -13,10 +15,14 @@ local function parse_labels(labels)
     return parsed
   end
 
+  local current_key
   for label in labels:gmatch("[^,]+") do
     local key, value = label:match("^([^=]+)=(.*)$")
     if key and value then
       parsed[key] = value
+      current_key = key
+    elseif current_key == compose_config_files_label then
+      parsed[current_key] = parsed[current_key] .. "," .. label
     end
   end
   return parsed

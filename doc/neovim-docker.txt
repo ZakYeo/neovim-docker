@@ -119,7 +119,10 @@ ENTER   Inspect/open details, or expand/collapse Compose project rows in the
 l       Tail logs where supported.
 e       Exec into a container where supported.
 s/S/R   Start, stop, or restart where supported.
+        On Compose project rows in the container page, these run the matching
+        Compose project action.
 d       Remove/down where supported.
+        On Compose project rows in the container page, this runs Compose down.
 p       Prune where supported.
 q       Close the page.
 
