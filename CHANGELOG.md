@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.4] - 2026-05-10
+
+### Added
+
+- Added configurable `npm notice` log highlighting via `highlights.logs.npm_notice`.
+- Grouped Docker containers by Compose project in the container view, with expandable project rows.
+
+### Fixed
+
+- Preserved existing container inspect behavior when pressing Enter on container rows.
+- Prevented container actions from running accidentally on Compose project group rows.
+- Included Compose project labels in container filtering.
+
 ## [0.1.3] - 2026-05-10
 
 ### Fixed

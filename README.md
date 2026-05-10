@@ -125,6 +125,7 @@ require("neovim-docker").setup({
       debug = "Comment",
       trace = "Comment",
       success = "DiagnosticOk",
+      npm_notice = "Special",
       timestamp = "Comment",
       source = "Identifier",
       http_2xx = "DiagnosticOk",
@@ -155,7 +156,7 @@ require("neovim-docker").setup({
 
 Docker pages are created as listed `nofile` buffers by default. Bufferline/tabline plugins that show listed buffers should pick them up with names like `docker://containers/docker-containers-12`; plugins configured to hide `nofile` buffers or custom URI schemes may need their filters adjusted in the parent app config.
 
-Live log buffers consume ANSI color codes from container output and render those colors without showing raw escape characters. Lines without ANSI colors fall back to semantic highlighting for severity words, timestamps, Compose/service prefixes, success states, and standalone 2xx-5xx HTTP-style status numbers. Override `highlights.logs` to map semantic categories to your preferred colorscheme groups.
+Live log buffers consume ANSI color codes from container output and render those colors without showing raw escape characters. Lines without ANSI colors fall back to semantic highlighting for severity words, `npm notice` output, timestamps, Compose/service prefixes, success states, and standalone 2xx-5xx HTTP-style status numbers. Override `highlights.logs` to map semantic categories to your preferred colorscheme groups.
 
 To route Docker pages into a favorite UI plugin, provide `ui.open`:
 
@@ -182,6 +183,7 @@ Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigat
 - `:DockerComposeProjects` lists existing Compose projects discovered from Docker labels.
 - `:DockerComposeFiles [dir]` discovers Compose files in a directory.
 - `:DockerComposeContainers <project>` lists containers for a Compose project.
+- `:DockerContainers` groups containers by Compose project when Docker Compose labels are present. Press `<CR>` on a project row to expand/collapse its containers; press `<CR>` on a container row to inspect it.
 - `:DockerRegistries` opens registry command guidance.
 - `:DockerRegistryStatus` shows registry config status from Docker CLI state.
 - `:DockerLogs <container>` tails live logs.
@@ -197,6 +199,7 @@ Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigat
 
 - `r`: refresh page.
 - `i`: inspect selected item.
+- `<CR>`: inspect/open the selected item, or expand/collapse a Compose project row in the container page.
 - `/`: filter rows.
 - `x`: clear filter.
 - `o`: cycle sort column.

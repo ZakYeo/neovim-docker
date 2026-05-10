@@ -10,6 +10,53 @@ local ui = require("neovim-docker.ui")
 local M = {}
 
 local pages = {}
+local compose_project_label = "com.docker.compose.project"
+
+local function is_container_page(page)
+  return page and page.kind == "containers"
+end
+
+local function is_compose_group(item)
+  return type(item) == "table" and item.__docker_view_kind == "compose_project"
+end
+
+local function compose_project_name(item)
+  local labels = item and item.labels or {}
+  return labels[compose_project_label]
+end
+
+local function lower(value)
+  return string.lower(tostring(value or ""))
+end
+
+local function container_matches_filter(item, filter_text, columns)
+  if filter_text == "" then
+    return true
+  end
+
+  for _, column in ipairs(columns or {}) do
+    if lower(table_view.value(item, column)):find(filter_text, 1, true) then
+      return true
+    end
+  end
+
+  return lower(compose_project_name(item)):find(filter_text, 1, true) ~= nil
+end
+
+local function apply_container_items(items, state, columns)
+  local filtered = {}
+  local filter_text = state.filter and lower(state.filter) or ""
+  for _, item in ipairs(items or {}) do
+    if container_matches_filter(item, filter_text, columns) then
+      filtered[#filtered + 1] = item
+    end
+  end
+
+  return table_view.apply(filtered, {
+    sort_column = state.sort_column,
+    sort_desc = state.sort_desc,
+  }, columns)
+end
 
 local specs = {
   containers = {
@@ -149,6 +196,57 @@ local function row_for(item, columns)
   return table.concat(cells, "  ")
 end
 
+local function create_compose_group(project_name, containers, expanded)
+  local marker = expanded and "[-]" or "[+]"
+  return {
+    __docker_view_kind = "compose_project",
+    id = marker,
+    name = project_name,
+    image = "compose project",
+    status = tostring(#containers) .. " container" .. (#containers == 1 and "" or "s"),
+    project = project_name,
+    containers = containers,
+  }
+end
+
+local function grouped_container_items(items, state)
+  local projects = {}
+  local standalone = {}
+  local top_level_order = {}
+
+  for _, item in ipairs(items or {}) do
+    local project_name = compose_project_name(item)
+    if project_name and project_name ~= "" then
+      if not projects[project_name] then
+        projects[project_name] = {}
+        top_level_order[#top_level_order + 1] = { type = "project", name = project_name }
+      end
+      projects[project_name][#projects[project_name] + 1] = item
+    else
+      standalone[#standalone + 1] = item
+      top_level_order[#top_level_order + 1] = { type = "container", index = #standalone }
+    end
+  end
+
+  local expanded_projects = state.expanded_projects or {}
+  local grouped = {}
+  for _, entry in ipairs(top_level_order) do
+    if entry.type == "project" then
+      local containers = projects[entry.name]
+      grouped[#grouped + 1] = create_compose_group(entry.name, containers, expanded_projects[entry.name] == true)
+      if expanded_projects[entry.name] then
+        for _, container in ipairs(containers) do
+          grouped[#grouped + 1] = container
+        end
+      end
+    else
+      grouped[#grouped + 1] = standalone[entry.index]
+    end
+  end
+
+  return grouped
+end
+
 local function render(page)
   local lines = {
     page.spec.title,
@@ -175,7 +273,13 @@ local function render(page)
     return lines
   end
 
-  page.visible_items = table_view.apply(page.items, page.state, page.spec.columns)
+  if is_container_page(page) then
+    local visible_items = apply_container_items(page.items, page.state, page.spec.columns)
+    page.visible_items = grouped_container_items(visible_items, page.state)
+  else
+    local visible_items = table_view.apply(page.items, page.state, page.spec.columns)
+    page.visible_items = visible_items
+  end
 
   if #page.visible_items == 0 then
     lines[#lines + 1] = "No Docker " .. page.kind .. " found."
@@ -251,6 +355,10 @@ local function run_page_action(page, action_key)
     return
   end
 
+  if action_key ~= "prune" and is_compose_group(current_item(page)) then
+    return
+  end
+
   if action_name == "container.logs" then
     local item = current_item(page)
     if item then
@@ -315,6 +423,21 @@ local function run_page_action(page, action_key)
   end)
 end
 
+local function toggle_compose_group(page, item)
+  page.state.expanded_projects = page.state.expanded_projects or {}
+  page.state.expanded_projects[item.project] = not page.state.expanded_projects[item.project]
+  write_page(page)
+end
+
+local function open_current_row(page)
+  local item = current_item(page)
+  if is_compose_group(item) then
+    toggle_compose_group(page, item)
+    return
+  end
+  run_page_action(page, "inspect")
+end
+
 local function help(page)
   local buf = details.open("Docker Page Help", {
     ok = true,
@@ -326,7 +449,8 @@ local function help(page)
       "x clear filter",
       "o cycle sort column",
       "a open action menu",
-      "<CR> or i inspect/open details",
+      "<CR> expand/collapse Compose projects or inspect/open details",
+      "i inspect/open details",
       "l tail logs where supported",
       "e exec shell where supported",
       "s/S/R start/stop/restart where supported",
@@ -419,7 +543,7 @@ local function attach_keymaps(page)
     run_page_action(page, "exec")
   end, "Docker exec shell")
   map(page.buf, maps.open, function()
-    run_page_action(page, "inspect")
+    open_current_row(page)
   end, "Docker open details")
   map(page.buf, maps.start, function()
     run_page_action(page, "start")
@@ -457,6 +581,7 @@ function M.open(kind, opts)
       filter = "",
       sort_column = nil,
       sort_desc = false,
+      expanded_projects = {},
     },
     result = { ok = true, items = {} },
     items = {},

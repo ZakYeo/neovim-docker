@@ -1,4 +1,38 @@
 describe("views", function()
+  local function setup_container_view(stdout, on_run)
+    local docker = require("neovim-docker.docker")
+    docker.setup({
+      runner_async = function(args, _, callback)
+        if args[2] == "ps" then
+          callback({
+            ok = true,
+            code = 0,
+            stdout = stdout,
+            stderr = {},
+          })
+        else
+          if on_run then
+            on_run(args)
+          end
+          callback({
+            ok = true,
+            code = 0,
+            stdout = {},
+            stderr = {},
+          })
+        end
+        return 1
+      end,
+    })
+    require("neovim-docker.config").setup({
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
+    return require("neovim-docker.views").open("containers")
+  end
+
   it("opens repeated pages with unique listed buffer names", function()
     local docker = require("neovim-docker.docker")
     docker.setup({
@@ -173,6 +207,35 @@ describe("views", function()
     eq(page.buf, vim.api.nvim_get_current_buf())
   end)
 
+  it("mentions compose group expansion in page help", function()
+    local docker = require("neovim-docker.docker")
+    docker.setup({
+      runner_async = function(_, _, callback)
+        callback({
+          ok = true,
+          code = 0,
+          stdout = {},
+          stderr = {},
+        })
+        return 1
+      end,
+    })
+    require("neovim-docker.config").setup({
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
+    require("neovim-docker.ui").reset_navigation()
+
+    local page = require("neovim-docker.views").open("containers")
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.fn.maparg("?", "n", false, true).callback()
+
+    local lines = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+    truthy(lines:find("<CR> expand/collapse Compose projects", 1, true))
+  end)
+
   it("selects the item under the cursor", function()
     local docker = require("neovim-docker.docker")
     docker.setup({
@@ -201,6 +264,129 @@ describe("views", function()
     eq("abc", require("neovim-docker.views").current_item(page).id)
     vim.api.nvim_win_set_cursor(0, { 9, 0 })
     eq("def", require("neovim-docker.views").current_item(page).id)
+  end)
+
+  it("groups compose containers and keeps standalone containers visible", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+      '{"ID":"def","Names":"demo-db-1","Image":"postgres","State":"exited","Status":"Exited","Labels":"com.docker.compose.project=demo,com.docker.compose.service=db"}',
+      '{"ID":"ghi","Names":"cache","Image":"redis","State":"running","Status":"Up","Labels":""}',
+    })
+
+    local lines = vim.api.nvim_buf_get_lines(page.buf, 0, -1, false)
+    truthy(lines[8]:match("^%[%+%]%s+demo%s+compose project%s+2 containers"))
+    truthy(lines[9]:match("^ghi%s+cache%s+redis%s+Up"))
+    eq(2, #page.visible_items)
+  end)
+
+  it("expands and collapses compose groups with enter", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+      '{"ID":"def","Names":"demo-db-1","Image":"postgres","State":"exited","Status":"Exited","Labels":"com.docker.compose.project=demo,com.docker.compose.service=db"}',
+    })
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("<CR>", "n", false, true).callback()
+
+    local expanded_lines = vim.api.nvim_buf_get_lines(page.buf, 0, -1, false)
+    truthy(expanded_lines[8]:match("^%[%-%]%s+demo%s+compose project%s+2 containers"))
+    truthy(expanded_lines[9]:match("^abc%s+demo%-api%-1%s+app%s+Up"))
+    truthy(expanded_lines[10]:match("^def%s+demo%-db%-1%s+postgres%s+Exited"))
+    eq(3, #page.visible_items)
+
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("<CR>", "n", false, true).callback()
+    local collapsed_lines = vim.api.nvim_buf_get_lines(page.buf, 0, -1, false)
+    truthy(collapsed_lines[8]:match("^%[%+%]%s+demo%s+compose project%s+2 containers"))
+    eq(1, #page.visible_items)
+  end)
+
+  it("filters compose groups by project label even when names do not include the project", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+      '{"ID":"def","Names":"db-1","Image":"postgres","State":"exited","Status":"Exited","Labels":"com.docker.compose.project=demo,com.docker.compose.service=db"}',
+      '{"ID":"ghi","Names":"api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=other,com.docker.compose.service=api"}',
+    })
+
+    local original_input = vim.ui.input
+    vim.ui.input = function(_, callback)
+      callback("demo")
+    end
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.fn.maparg("/", "n", false, true).callback()
+    vim.ui.input = original_input
+
+    local lines = vim.api.nvim_buf_get_lines(page.buf, 0, -1, false)
+    truthy(lines[8]:match("^%[%+%]%s+demo%s+compose project%s+2 containers"))
+    eq(1, #page.visible_items)
+  end)
+
+  it("keeps compose group counts scoped to filtered container matches", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+      '{"ID":"def","Names":"db-1","Image":"postgres","State":"exited","Status":"Exited","Labels":"com.docker.compose.project=demo,com.docker.compose.service=db"}',
+    })
+
+    local original_input = vim.ui.input
+    vim.ui.input = function(_, callback)
+      callback("postgres")
+    end
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.fn.maparg("/", "n", false, true).callback()
+    vim.ui.input = original_input
+
+    local lines = vim.api.nvim_buf_get_lines(page.buf, 0, -1, false)
+    truthy(lines[8]:match("^%[%+%]%s+demo%s+compose project%s+1 container"))
+    eq(1, #page.visible_items)
+  end)
+
+  it("does not run container actions on compose group rows", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    local original_logs_open = require("neovim-docker.logs").open
+    local original_exec_open = require("neovim-docker.exec").open
+    local opened_logs = false
+    local opened_exec = false
+    require("neovim-docker.logs").open = function()
+      opened_logs = true
+    end
+    require("neovim-docker.exec").open = function()
+      opened_exec = true
+    end
+
+    vim.api.nvim_set_current_buf(page.buf)
+    for _, key in ipairs({ "i", "l", "e", "d", "s" }) do
+      vim.api.nvim_win_set_cursor(0, { 8, 0 })
+      vim.fn.maparg(key, "n", false, true).callback()
+    end
+
+    require("neovim-docker.logs").open = original_logs_open
+    require("neovim-docker.exec").open = original_exec_open
+    eq(0, #ran_actions)
+    eq(false, opened_logs)
+    eq(false, opened_exec)
+  end)
+
+  it("keeps enter inspect behavior for container rows", function()
+    local run_args
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+    }, function(args)
+      run_args = args
+    end)
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("<CR>", "n", false, true).callback()
+    vim.api.nvim_win_set_cursor(0, { 9, 0 })
+    vim.fn.maparg("<CR>", "n", false, true).callback()
+
+    eq({ "docker", "inspect", "abc" }, run_args)
   end)
 
   it("exposes log actions on native container pages", function()

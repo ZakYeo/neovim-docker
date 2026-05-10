@@ -12,6 +12,8 @@ COMMANDS                                               *neovim-docker-commands*
 :DockerDashboard       Open the Docker dashboard.
 :DockerDashboard!      Open the Docker dashboard in a floating window.
 :DockerContainers      List containers.
+                       Compose containers are grouped by project when Compose
+                       labels are available.
 :DockerImages          List images.
 :DockerVolumes         List volumes.
 :DockerNetworks        List networks.
@@ -61,6 +63,7 @@ CONFIGURATION                                           *neovim-docker-config*
         debug = "Comment",
         trace = "Comment",
         success = "DiagnosticOk",
+        npm_notice = "Special",
         timestamp = "Comment",
         source = "Identifier",
         http_2xx = "DiagnosticOk",
@@ -93,8 +96,9 @@ value. log_max_lines bounds the retained live log output lines in memory while
 docker logs --follow runs. Invalid values fall back to the default cap.
 Live log buffers consume ANSI color codes from container output and render
 those colors without showing raw escape characters. Lines without ANSI colors
-fall back to semantic highlighting for severity words, timestamps, service
-prefixes, success states, and standalone 2xx-5xx HTTP-style status numbers.
+fall back to semantic highlighting for severity words, npm notice output,
+timestamps, service prefixes, success states, and standalone 2xx-5xx
+HTTP-style status numbers.
 Override highlights.logs to map semantic categories to colorscheme groups.
 
 ==============================================================================
@@ -110,6 +114,8 @@ CTRL-O  Move back through Docker pages/details/help/logs when still open.
 CTRL-I  Move forward through Docker pages/details/help/logs when still open.
 b       Go back from the help page.
 i       Inspect/open details.
+ENTER   Inspect/open details, or expand/collapse Compose project rows in the
+        container page.
 l       Tail logs where supported.
 e       Exec into a container where supported.
 s/S/R   Start, stop, or restart where supported.

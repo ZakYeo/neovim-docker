@@ -21,6 +21,7 @@ local defaults = {
       debug = "Comment",
       trace = "Comment",
       success = "DiagnosticOk",
+      npm_notice = "Special",
       timestamp = "Comment",
       source = "Identifier",
       http_2xx = "DiagnosticOk",

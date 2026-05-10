@@ -353,14 +353,18 @@ local function highlight_http_status(buf, line_index, line, groups)
   end
 end
 
+local function is_npm_notice(line)
+  return line:lower():find("npm notice", 1, true) ~= nil
+end
+
 local function highlight_log_line(buf, line_index, line, groups)
   if line_index < header_line_count or line == "" then
     return
   end
 
-  local severity_group = line_severity_group(line, groups)
-  if severity_group then
-    add_highlight(buf, line_index, 0, #line, severity_group, 80)
+  local line_group = is_npm_notice(line) and groups.npm_notice or line_severity_group(line, groups)
+  if line_group then
+    add_highlight(buf, line_index, 0, #line, line_group, 80)
   end
 
   highlight_range(buf, line_index, line, "%d%d%d%d%-%d%d%-%d%d[T ][%d:%.]+Z?", groups.timestamp, 160)

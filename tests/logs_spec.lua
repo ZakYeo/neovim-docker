@@ -270,6 +270,25 @@ describe("logs", function()
     reset_logs_test(buf)
   end)
 
+  it("highlights npm notice lines without ANSI colors", function()
+    require("neovim-docker.config").setup({
+      log_max_lines = 10,
+      ui = {
+        open = function() end,
+      },
+      notify = function() end,
+    })
+
+    local buf
+    with_stubbed_logs({ "NPM NOTICE package-lock metadata updated", "" }, function()
+      buf = require("neovim-docker.logs").open("web", { tail = 1 })
+    end)
+
+    truthy(has_highlight(buf, 2, "Special"))
+
+    reset_logs_test(buf)
+  end)
+
   it("uses custom log highlight groups", function()
     require("neovim-docker.config").setup({
       log_max_lines = 10,
@@ -292,6 +311,50 @@ describe("logs", function()
 
     truthy(has_highlight(buf, 2, "ErrorMsg"))
     truthy(has_highlight(buf, 2, "WarningMsg"))
+
+    reset_logs_test(buf)
+  end)
+
+  it("uses custom npm notice log highlight groups", function()
+    require("neovim-docker.config").setup({
+      log_max_lines = 10,
+      highlights = {
+        logs = {
+          npm_notice = "WarningMsg",
+        },
+      },
+      ui = {
+        open = function() end,
+      },
+      notify = function() end,
+    })
+
+    local buf
+    with_stubbed_logs({ "npm notice published 1 package", "" }, function()
+      buf = require("neovim-docker.logs").open("web", { tail = 1 })
+    end)
+
+    truthy(has_highlight(buf, 2, "WarningMsg"))
+
+    reset_logs_test(buf)
+  end)
+
+  it("keeps ANSI colors ahead of npm notice fallback highlighting", function()
+    require("neovim-docker.config").setup({
+      log_max_lines = 10,
+      ui = {
+        open = function() end,
+      },
+      notify = function() end,
+    })
+
+    local buf
+    with_stubbed_logs({ "\27[33mnpm notice published 1 package\27[39m", "" }, function()
+      buf = require("neovim-docker.logs").open("web", { tail = 1 })
+    end)
+
+    truthy(has_highlight(buf, 2, "NeovimDockerAnsi3"))
+    eq(false, has_highlight(buf, 2, "Special"))
 
     reset_logs_test(buf)
   end)
