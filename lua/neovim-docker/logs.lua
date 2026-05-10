@@ -7,6 +7,28 @@ local M = {}
 local jobs = {}
 local header_line_count = 2
 local highlights_ns = vim.api.nvim_create_namespace("neovim-docker-logs")
+local ansi_groups = {}
+
+local ansi_basic_colors = {
+  [0] = "#1f2937",
+  [1] = "#dc2626",
+  [2] = "#16a34a",
+  [3] = "#ca8a04",
+  [4] = "#2563eb",
+  [5] = "#9333ea",
+  [6] = "#0891b2",
+  [7] = "#e5e7eb",
+  [8] = "#6b7280",
+  [9] = "#ef4444",
+  [10] = "#22c55e",
+  [11] = "#eab308",
+  [12] = "#3b82f6",
+  [13] = "#a855f7",
+  [14] = "#06b6d4",
+  [15] = "#f9fafb",
+}
+
+local ansi_color_cube = { 0, 95, 135, 175, 215, 255 }
 
 local function docker_command()
   local cmd = config.get().docker_cmd
@@ -48,6 +70,144 @@ local function normalise_job_lines(lines)
     output[#output] = nil
   end
   return output
+end
+
+local function hex(value)
+  return string.format("%02x", value)
+end
+
+local function xterm_color(index)
+  if index < 0 or index > 255 then
+    return nil
+  end
+  if index < 16 then
+    return ansi_basic_colors[index]
+  end
+  if index >= 232 then
+    local level = 8 + ((index - 232) * 10)
+    return "#" .. hex(level) .. hex(level) .. hex(level)
+  end
+
+  local adjusted = index - 16
+  local red = math.floor(adjusted / 36)
+  local green = math.floor((adjusted % 36) / 6)
+  local blue = adjusted % 6
+  return "#" .. hex(ansi_color_cube[red + 1]) .. hex(ansi_color_cube[green + 1]) .. hex(ansi_color_cube[blue + 1])
+end
+
+local function ansi_group(index)
+  local color = xterm_color(index)
+  if not color then
+    return nil
+  end
+
+  local name = "NeovimDockerAnsi" .. tostring(index)
+  if not ansi_groups[name] then
+    pcall(vim.api.nvim_set_hl, 0, name, { fg = color })
+    ansi_groups[name] = true
+  end
+  return name
+end
+
+local function sgr_codes(value)
+  if value == "" then
+    return { 0 }
+  end
+
+  local codes = {}
+  for code in value:gmatch("%d+") do
+    codes[#codes + 1] = tonumber(code)
+  end
+  if #codes == 0 then
+    codes[1] = 0
+  end
+  return codes
+end
+
+local function apply_sgr_codes(codes, active_group)
+  local index = 1
+  while index <= #codes do
+    local code = codes[index]
+    if code == 0 or code == 39 then
+      active_group = nil
+    elseif code and code >= 30 and code <= 37 then
+      active_group = ansi_group(code - 30)
+    elseif code and code >= 90 and code <= 97 then
+      active_group = ansi_group(code - 90 + 8)
+    elseif code == 38 and codes[index + 1] == 5 and codes[index + 2] then
+      active_group = ansi_group(codes[index + 2])
+      index = index + 2
+    end
+    index = index + 1
+  end
+  return active_group
+end
+
+local function parse_ansi_line(line)
+  local output = {}
+  local segments = {}
+  local active_group
+  local plain_col = 0
+  local cursor = 1
+  local has_ansi = false
+
+  while true do
+    local escape_start, escape_end, codes = line:find("\27%[([%d;]*)m", cursor)
+    if not escape_start then
+      break
+    end
+
+    has_ansi = true
+    local text = line:sub(cursor, escape_start - 1)
+    if text ~= "" then
+      output[#output + 1] = text
+      if active_group then
+        segments[#segments + 1] = {
+          start_col = plain_col,
+          end_col = plain_col + #text,
+          group = active_group,
+        }
+      end
+      plain_col = plain_col + #text
+    end
+
+    active_group = apply_sgr_codes(sgr_codes(codes), active_group)
+    cursor = escape_end + 1
+  end
+
+  local text = line:sub(cursor)
+  if text ~= "" then
+    output[#output + 1] = text
+    if active_group then
+      segments[#segments + 1] = {
+        start_col = plain_col,
+        end_col = plain_col + #text,
+        group = active_group,
+      }
+    end
+  end
+
+  if not has_ansi then
+    return line, nil
+  end
+  return table.concat(output), segments
+end
+
+local function parse_ansi_lines(lines)
+  local output = {}
+  local ansi_segments = {}
+  local has_ansi = false
+
+  for index, line in ipairs(lines) do
+    local clean_line, segments = parse_ansi_line(line)
+    output[index] = clean_line
+    if segments and #segments > 0 then
+      ansi_segments[index] = segments
+      has_ansi = true
+    end
+  end
+
+  return output, has_ansi and ansi_segments or nil
 end
 
 local function slice_tail(lines, max_lines)
@@ -95,6 +255,21 @@ local function bounded_append_lines(buf, lines, max_lines)
   end
   pretrim_for_append(buf, #lines, max_lines)
   return lines
+end
+
+local function slice_ansi_segments(segments, original_count, retained_count)
+  if not segments or retained_count == original_count then
+    return segments
+  end
+
+  local offset = original_count - retained_count
+  local output = {}
+  for index = offset + 1, original_count do
+    if segments[index] then
+      output[index - offset] = segments[index]
+    end
+  end
+  return output
 end
 
 local function token_match(line, token)
@@ -194,7 +369,13 @@ local function highlight_log_line(buf, line_index, line, groups)
   highlight_http_status(buf, line_index, line, groups)
 end
 
-local function highlight_lines(buf, first_line, last_line)
+local function highlight_ansi_segments(buf, line_index, segments)
+  for _, segment in ipairs(segments or {}) do
+    add_highlight(buf, line_index, segment.start_col, segment.end_col, segment.group, 180)
+  end
+end
+
+local function highlight_lines(buf, first_line, last_line, ansi_segments)
   if not vim.api.nvim_buf_is_valid(buf) then
     return
   end
@@ -202,7 +383,13 @@ local function highlight_lines(buf, first_line, last_line)
   local groups = config.get().highlights.logs or {}
   local lines = vim.api.nvim_buf_get_lines(buf, first_line, last_line + 1, false)
   for offset, line in ipairs(lines) do
-    highlight_log_line(buf, first_line + offset - 1, line, groups)
+    local line_index = first_line + offset - 1
+    local segments = ansi_segments and ansi_segments[offset]
+    if segments then
+      highlight_ansi_segments(buf, line_index, segments)
+    else
+      highlight_log_line(buf, line_index, line, groups)
+    end
   end
 end
 
@@ -234,11 +421,14 @@ local function append(buf, lines, max_lines)
   local modifiable = false
   local highlight_start
   local highlight_end
+  local ansi_segments
   local ok = pcall(function()
     vim.bo[buf].modifiable = true
     modifiable = true
+    lines, ansi_segments = parse_ansi_lines(lines)
+    local original_count = #lines
     lines = bounded_append_lines(buf, lines, max_lines)
-    highlight_start = vim.api.nvim_buf_line_count(buf)
+    ansi_segments = slice_ansi_segments(ansi_segments, original_count, #lines)
     vim.api.nvim_buf_set_lines(buf, -1, -1, false, lines)
     trim_log_lines(buf, max_lines)
     local line_count = vim.api.nvim_buf_line_count(buf)
@@ -254,7 +444,7 @@ local function append(buf, lines, max_lines)
     return
   end
   if highlight_start and highlight_end and highlight_start <= highlight_end then
-    highlight_lines(buf, highlight_start, highlight_end)
+    highlight_lines(buf, highlight_start, highlight_end, ansi_segments)
   end
   local win = vim.fn.bufwinid(buf)
   if win ~= -1 then

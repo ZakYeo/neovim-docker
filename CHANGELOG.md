@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.3] - 2026-05-10
+
+### Fixed
+
+- Stripped ANSI SGR escape sequences from Docker log buffers instead of displaying raw control characters.
+- Rendered ANSI foreground colors from container logs as Neovim highlights, with semantic log highlighting used as a fallback for plain lines.
+
 ## [0.1.2] - 2026-05-10
 
 ### Added

@@ -155,7 +155,7 @@ require("neovim-docker").setup({
 
 Docker pages are created as listed `nofile` buffers by default. Bufferline/tabline plugins that show listed buffers should pick them up with names like `docker://containers/docker-containers-12`; plugins configured to hide `nofile` buffers or custom URI schemes may need their filters adjusted in the parent app config.
 
-Live log buffers highlight common severity words, timestamps, Compose/service prefixes, success states, and standalone 2xx-5xx HTTP-style status numbers. Override `highlights.logs` to map those categories to your preferred colorscheme groups.
+Live log buffers consume ANSI color codes from container output and render those colors without showing raw escape characters. Lines without ANSI colors fall back to semantic highlighting for severity words, timestamps, Compose/service prefixes, success states, and standalone 2xx-5xx HTTP-style status numbers. Override `highlights.logs` to map semantic categories to your preferred colorscheme groups.
 
 To route Docker pages into a favorite UI plugin, provide `ui.open`:
 

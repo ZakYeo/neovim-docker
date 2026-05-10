@@ -47,6 +47,16 @@ describe("logs", function()
     return false
   end
 
+  local function highlight_count(buf, line, group)
+    local count = 0
+    for _, mark in ipairs(log_highlights(buf)) do
+      if mark[2] == line and mark[4] and mark[4].hl_group == group then
+        count = count + 1
+      end
+    end
+    return count
+  end
+
   it("bounds retained live log output lines", function()
     require("neovim-docker.config").setup({
       docker_cmd = { "sh", "-c", "printf 'one\\ntwo\\nthree\\nfour\\nfive\\n'" },
@@ -207,6 +217,55 @@ describe("logs", function()
     truthy(has_highlight(buf, 2, "DiagnosticOk"))
     truthy(has_highlight(buf, 3, "DiagnosticWarn"))
     truthy(has_highlight(buf, 4, "DiagnosticError"))
+
+    reset_logs_test(buf)
+  end)
+
+  it("strips ANSI color codes and uses them for log highlights", function()
+    require("neovim-docker.config").setup({
+      log_max_lines = 10,
+      ui = {
+        open = function() end,
+      },
+      notify = function() end,
+    })
+
+    local buf
+    with_stubbed_logs({
+      "\27[32m[Nest] 29  - \27[39m05/06/2026, 7:47:01 PM \27[32m    LOG\27[39m \27[38;5;3m[InstanceLoader] \27[39m\27[32mJwtModule dependencies initialized\27[39m\27[38;5;3m +1ms\27[39m",
+      "",
+    }, function()
+      buf = require("neovim-docker.logs").open("web", { tail = 1 })
+    end)
+
+    eq({
+      "Docker logs: web",
+      "",
+      "[Nest] 29  - 05/06/2026, 7:47:01 PM     LOG [InstanceLoader] JwtModule dependencies initialized +1ms",
+    }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    truthy(highlight_count(buf, 2, "NeovimDockerAnsi2") >= 2)
+    truthy(highlight_count(buf, 2, "NeovimDockerAnsi3") >= 2)
+    eq(false, has_highlight(buf, 2, "DiagnosticInfo"))
+
+    reset_logs_test(buf)
+  end)
+
+  it("falls back to semantic highlights when ANSI color codes are absent", function()
+    require("neovim-docker.config").setup({
+      log_max_lines = 10,
+      ui = {
+        open = function() end,
+      },
+      notify = function() end,
+    })
+
+    local buf
+    with_stubbed_logs({ "api-1 | INFO ready 200", "" }, function()
+      buf = require("neovim-docker.logs").open("web", { tail = 1 })
+    end)
+
+    truthy(has_highlight(buf, 2, "DiagnosticInfo"))
+    truthy(has_highlight(buf, 2, "DiagnosticOk"))
 
     reset_logs_test(buf)
   end)
