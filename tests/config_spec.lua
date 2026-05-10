@@ -7,6 +7,8 @@ describe("config", function()
     })
 
     eq("docker", config.get().docker_cmd)
+    eq(200, config.get().log_tail)
+    eq(5000, config.get().log_max_lines)
     eq("tab", config.get().ui.open_strategy)
     eq("<leader>xc", config.get().keymaps.global.containers)
     eq("<leader>Di", config.get().keymaps.global.images)

@@ -4,6 +4,7 @@ local defaults = {
   docker_cmd = "docker",
   compose_cmd = { "docker", "compose" },
   log_tail = 200,
+  log_max_lines = 5000,
   exec_shell = "/bin/sh",
   timeout = 30000,
   refresh_interval = 0,

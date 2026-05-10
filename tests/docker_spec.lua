@@ -119,4 +119,12 @@ describe("docker cli", function()
     eq("compose.yaml", result.items[1].name)
     eq(dir, result.items[1].cwd)
   end)
+
+  it("builds live log calls with configurable initial tail", function()
+    require("neovim-docker.config").setup({ log_tail = 50 })
+
+    local docker = require("neovim-docker.docker")
+    eq({ "logs", "--follow", "--tail", "50", "web" }, docker.logs_args("web"))
+    eq({ "logs", "--follow", "--tail", "5", "web" }, docker.logs_args("web", { tail = 5 }))
+  end)
 end)

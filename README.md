@@ -6,7 +6,7 @@
 
 A Lua Neovim plugin for managing Docker from native buffers, with LazyVim-friendly defaults.
 
-The default UI uses ordinary Neovim buffers so Docker pages can appear in the user's preferred tab, bufferline, barbar, snacks, lualine, or other buffer UI. Telescope pickers and a floating dashboard are optional entrypoints.
+The default UI uses listed Neovim scratch buffers with unique meaningful `docker://` names, so Docker pages can appear in the user's preferred tab, bufferline, barbar, snacks, lualine, or other buffer UI. Telescope pickers and a floating dashboard are optional entrypoints.
 
 ## Features
 
@@ -112,7 +112,8 @@ keys = {
 require("neovim-docker").setup({
   docker_cmd = "docker",
   compose_cmd = { "docker", "compose" },
-  log_tail = 200,
+  log_tail = 200, -- initial docker logs --tail value
+  log_max_lines = 5000, -- retained live log lines; invalid values fall back to 5000
   exec_shell = "/bin/sh",
   timeout = 30000,
   refresh_interval = 0, -- set > 0 milliseconds for background refresh
@@ -136,6 +137,8 @@ require("neovim-docker").setup({
 })
 ```
 
+Docker pages are created as listed `nofile` buffers by default. Bufferline/tabline plugins that show listed buffers should pick them up with names like `docker://containers/docker-containers-12`; plugins configured to hide `nofile` buffers or custom URI schemes may need their filters adjusted in the parent app config.
+
 To route Docker pages into a favorite UI plugin, provide `ui.open`:
 
 ```lua
@@ -148,6 +151,8 @@ require("neovim-docker").setup({
   },
 })
 ```
+
+Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigation can track the shown window. Return `false` when the hook intentionally declines to open the buffer; that page will not be added to navigation history.
 
 ## Commands
 
@@ -179,6 +184,8 @@ require("neovim-docker").setup({
 - `o`: cycle sort column.
 - `a`: open action menu.
 - `?`: open help overlay.
+- `<C-o>` / `<C-i>`: move backward/forward through Docker pages, details, help, and logs where the target buffer is still open.
+- `b`: go back from the help overlay.
 - `l`: tail selected container logs.
 - `e`: exec shell into selected container.
 - `s`: start selected item where supported.
