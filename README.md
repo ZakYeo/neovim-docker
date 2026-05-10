@@ -25,7 +25,8 @@ The default UI uses listed Neovim scratch buffers with unique meaningful `docker
 ## Screenshots
 <img width="1331" height="382" alt="image" src="https://github.com/user-attachments/assets/645500ff-4d11-4f55-aeed-7d4b1e8919d8" />
 <br/>
-<img width="2192" height="481" alt="image" src="https://github.com/user-attachments/assets/b1e6abc8-bdd2-4570-b933-395db7afd99d" />
+<img width="2192" height="481" alt="image" src="https://github.com/user-attachments/assets/1dd06437-010f-409c-9fce-2053c7065255" />
+
 
 
 ## Requirements
