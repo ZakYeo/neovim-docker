@@ -15,6 +15,7 @@ local compose_project_working_dir_label = "com.docker.compose.project.working_di
 local compose_project_config_files_label = "com.docker.compose.project.config_files"
 
 local compose_group_actions = {
+  volumes = "view.volumes",
   up = "compose.project.up",
   start = "compose.project.start",
   stop = "compose.project.stop",
@@ -85,6 +86,7 @@ local specs = {
     fetch_async = docker.containers_async,
     columns = { "id", "name", "image", "status" },
     actions = {
+      volumes = "view.volumes",
       start = "container.start",
       stop = "container.stop",
       restart = "container.restart",
@@ -132,6 +134,7 @@ local specs = {
     fetch_async = docker.volumes_async,
     columns = { "name", "Driver", "Mountpoint" },
     actions = {
+      delete = "volume.remove",
       remove = "volume.remove",
       prune = "volume.prune",
       inspect = "volume.inspect",
@@ -385,6 +388,11 @@ local function run_page_action(page, action_key)
     action_name = compose_group_actions[action_key]
   end
   if not action_name then
+    return
+  end
+
+  if action_name == "view.volumes" then
+    M.open("volumes")
     return
   end
 

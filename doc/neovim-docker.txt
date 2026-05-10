@@ -109,6 +109,8 @@ r       Refresh the page.
 x       Clear the active filter.
 o       Cycle sort columns.
 a       Open the action menu.
+        On the container page, the action menu includes volumes to jump to the
+        Docker volumes page.
 ?       Open page help.
 CTRL-O  Move back through Docker pages/details/help/logs when still open.
 CTRL-I  Move forward through Docker pages/details/help/logs when still open.
@@ -121,7 +123,7 @@ e       Exec into a container where supported.
 s/S/R   Start, stop, or restart where supported.
         On Compose project rows in the container page, these run the matching
         Compose project action.
-d       Remove/down where supported.
+d       Remove/delete/down where supported.
         On Compose project rows in the container page, this runs Compose down.
 p       Prune where supported.
 q       Close the page.

@@ -416,6 +416,92 @@ describe("views", function()
     eq({ "docker", "compose", "up", "-d" }, ran_actions[1])
   end)
 
+  it("opens volumes from the container action menu", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    local original_select = vim.ui.select
+    vim.ui.select = function(items, _, callback)
+      eq(true, vim.tbl_contains(items, "volumes"))
+      callback("volumes")
+    end
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("a", "n", false, true).callback()
+    vim.ui.select = original_select
+
+    eq("volumes", require("neovim-docker.views").get().kind)
+    eq({ "docker", "volume", "ls", "--format", "{{json .}}" }, ran_actions[1])
+  end)
+
+  it("keeps the volumes jump available on compose group action menus", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+    })
+    local original_select = vim.ui.select
+    vim.ui.select = function(items, _, callback)
+      eq(true, vim.tbl_contains(items, "volumes"))
+      eq(true, vim.tbl_contains(items, "up"))
+      callback(nil)
+    end
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("a", "n", false, true).callback()
+    vim.ui.select = original_select
+  end)
+
+  it("deletes volumes from the volume action menu", function()
+    local calls = {}
+    local docker = require("neovim-docker.docker")
+    docker.setup({
+      runner_async = function(args, _, callback)
+        calls[#calls + 1] = args
+        if args[2] == "volume" and args[3] == "ls" then
+          callback({
+            ok = true,
+            code = 0,
+            stdout = {
+              '{"Name":"cache","Driver":"local","Mountpoint":"/var/lib/docker/volumes/cache/_data"}',
+            },
+            stderr = {},
+          })
+        else
+          callback({
+            ok = true,
+            code = 0,
+            stdout = {},
+            stderr = {},
+          })
+        end
+        return 1
+      end,
+    })
+    require("neovim-docker.config").setup({
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
+    local page = require("neovim-docker.views").open("volumes")
+    local original_select = vim.ui.select
+    vim.ui.select = function(items, _, callback)
+      eq(true, vim.tbl_contains(items, "delete"))
+      callback("delete")
+    end
+
+    vim.api.nvim_set_current_buf(page.buf)
+    vim.api.nvim_win_set_cursor(0, { 8, 0 })
+    vim.fn.maparg("a", "n", false, true).callback()
+    vim.ui.select = original_select
+
+    eq({ "docker", "volume", "rm", "cache" }, calls[2])
+  end)
+
   it("does not open logs, exec, or inspect details on compose group rows", function()
     local ran_actions = {}
     local page = setup_container_view({
