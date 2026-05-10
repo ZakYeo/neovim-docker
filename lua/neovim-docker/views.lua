@@ -524,7 +524,46 @@ local function sort(page)
   write_page(page)
 end
 
-local function action_menu(page)
+local action_menu_keys = {
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "0",
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g",
+  "h",
+  "i",
+  "j",
+  "k",
+  "l",
+  "m",
+  "n",
+  "o",
+  "p",
+  "q",
+  "r",
+  "s",
+  "t",
+  "u",
+  "v",
+  "w",
+  "x",
+  "y",
+  "z",
+}
+
+local function action_menu_entries(page)
   local names = {}
   local by_label = {}
   local item = current_item(page)
@@ -537,6 +576,125 @@ local function action_menu(page)
     by_label[key] = key
   end
   table.sort(names)
+  return names, by_label
+end
+
+local function which_key_action_menu_enabled()
+  local integration = config.get().integrations.which_key or {}
+  if integration.action_menu == false or integration.enabled == false then
+    return nil
+  end
+
+  local ok, which_key = pcall(require, "which-key")
+  if not ok then
+    return nil
+  end
+
+  return which_key
+end
+
+local function buffer_mapping(buf, lhs)
+  for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+    if mapping.lhs == lhs then
+      return mapping
+    end
+  end
+  return nil
+end
+
+local function clear_which_key_action_maps(page)
+  for _, entry in ipairs(page.which_key_action_maps or {}) do
+    local mapping = buffer_mapping(page.buf, entry.lhs)
+    if mapping and mapping.callback == entry.callback then
+      pcall(vim.keymap.del, "n", entry.lhs, { buffer = page.buf })
+    end
+  end
+  page.which_key_action_maps = {}
+end
+
+local function has_buffer_mapping(buf, lhs)
+  return buffer_mapping(buf, lhs) ~= nil
+end
+
+local function next_action_menu_lhs(prefix, buf, suffix_index)
+  while suffix_index <= #action_menu_keys do
+    local lhs = prefix .. action_menu_keys[suffix_index]
+    suffix_index = suffix_index + 1
+    if not has_buffer_mapping(buf, lhs) then
+      return lhs, suffix_index
+    end
+  end
+  return nil, suffix_index
+end
+
+local function which_key_action_menu(page, names, by_label)
+  local which_key = which_key_action_menu_enabled()
+  if not which_key or type(which_key.add) ~= "function" or type(which_key.show) ~= "function" then
+    return false
+  end
+
+  local maps = config.get().keymaps.buffer
+  local prefix = maps.action_menu
+  if not prefix or prefix == "" then
+    return false
+  end
+
+  clear_which_key_action_maps(page)
+
+  local spec = {
+    { prefix, group = "Docker actions", buffer = page.buf, mode = "n" },
+  }
+  local suffix_index = 1
+  for index, name in ipairs(names) do
+    local lhs
+    lhs, suffix_index = next_action_menu_lhs(prefix, page.buf, suffix_index)
+    if lhs then
+      local callback = function()
+        clear_which_key_action_maps(page)
+        run_page_action(page, by_label[name])
+      end
+      spec[#spec + 1] = {
+        lhs,
+        callback,
+        desc = name,
+        buffer = page.buf,
+        mode = "n",
+      }
+      page.which_key_action_maps = page.which_key_action_maps or {}
+      page.which_key_action_maps[#page.which_key_action_maps + 1] = { lhs = lhs, callback = callback }
+    end
+  end
+
+  if not page.which_key_action_maps or #page.which_key_action_maps == 0 then
+    return false
+  end
+
+  local ok = pcall(which_key.add, spec)
+  if not ok then
+    clear_which_key_action_maps(page)
+    return false
+  end
+
+  ok = pcall(which_key.show, { keys = prefix, mode = "n", buffer = page.buf, delay = 0 })
+  if not ok then
+    clear_which_key_action_maps(page)
+    return false
+  end
+
+  vim.defer_fn(function()
+    if vim.api.nvim_buf_is_valid(page.buf) then
+      clear_which_key_action_maps(page)
+    end
+  end, 10000)
+  return true
+end
+
+local function action_menu(page)
+  local names, by_label = action_menu_entries(page)
+  if which_key_action_menu(page, names, by_label) then
+    return
+  end
+
   vim.ui.select(names, { prompt = "Docker action" }, function(choice)
     if choice then
       run_page_action(page, by_label[choice])

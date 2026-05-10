@@ -154,6 +154,10 @@ require("neovim-docker").setup({
     telescope = {
       enabled = "auto",
     },
+    which_key = {
+      enabled = "auto", -- auto, true, or false
+      action_menu = true, -- use which-key for page action menus when available
+    },
   },
   keymaps = {
     enabled = true,
@@ -179,6 +183,8 @@ require("neovim-docker").setup({
 ```
 
 Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigation can track the shown window. Return `false` when the hook intentionally declines to open the buffer; that page will not be added to navigation history.
+
+When `which-key.nvim` is installed, Docker action menus use a which-key popup by default. Set `integrations.which_key.enabled = false` or `integrations.which_key.action_menu = false` to keep the `vim.ui.select` action picker.
 
 ## Commands
 

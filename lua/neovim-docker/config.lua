@@ -44,6 +44,10 @@ local defaults = {
     telescope = {
       enabled = "auto",
     },
+    which_key = {
+      enabled = "auto",
+      action_menu = true,
+    },
   },
   keymaps = {
     enabled = true,

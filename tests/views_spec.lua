@@ -1,4 +1,24 @@
 describe("views", function()
+  local function with_package_loaded(name, value, fn)
+    local original = package.loaded[name]
+    package.loaded[name] = value
+    local ok, err = pcall(fn)
+    package.loaded[name] = original
+    if not ok then
+      error(err, 0)
+    end
+  end
+
+  local function with_select(select, fn)
+    local original = vim.ui.select
+    vim.ui.select = select
+    local ok, err = pcall(fn)
+    vim.ui.select = original
+    if not ok then
+      error(err, 0)
+    end
+  end
+
   local function setup_container_view(stdout, on_run)
     local docker = require("neovim-docker.docker")
     docker.setup({
@@ -399,6 +419,17 @@ describe("views", function()
     }, function(args)
       ran_actions[#ran_actions + 1] = args
     end)
+    require("neovim-docker.config").setup({
+      integrations = {
+        which_key = {
+          action_menu = false,
+        },
+      },
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
     local original_select = vim.ui.select
     vim.ui.select = function(items, _, callback)
       eq(true, vim.tbl_contains(items, "up"))
@@ -416,6 +447,229 @@ describe("views", function()
     eq({ "docker", "compose", "up", "-d" }, ran_actions[1])
   end)
 
+  it("uses which-key for action menus when available", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    local added_spec
+    local shown_opts
+    with_package_loaded("which-key", {
+      add = function(spec)
+        added_spec = spec
+      end,
+      show = function(opts)
+        shown_opts = opts
+      end,
+    }, function()
+      vim.api.nvim_set_current_buf(page.buf)
+      vim.api.nvim_win_set_cursor(0, { 8, 0 })
+      vim.fn.maparg("a", "n", false, true).callback()
+    end)
+
+    eq("a", shown_opts.keys)
+    eq(page.buf, shown_opts.buffer)
+    local start
+    for _, entry in ipairs(added_spec or {}) do
+      if entry.desc == "start" then
+        start = entry
+      end
+    end
+    truthy(start)
+    start[2]()
+    eq({ "docker", "start", "abc" }, ran_actions[1])
+  end)
+
+  it("does not overwrite existing buffer-local mappings for which-key action entries", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    })
+    local added_spec
+    with_package_loaded("which-key", {
+      add = function(spec)
+        added_spec = spec
+      end,
+      show = function() end,
+    }, function()
+      vim.api.nvim_set_current_buf(page.buf)
+      vim.keymap.set("n", "a1", function() end, { buffer = page.buf })
+      vim.api.nvim_win_set_cursor(0, { 8, 0 })
+      vim.fn.maparg("a", "n", false, true).callback()
+      pcall(vim.keymap.del, "n", "a1", { buffer = page.buf })
+    end)
+
+    for _, entry in ipairs(added_spec or {}) do
+      eq(false, entry[1] == "a1")
+    end
+  end)
+
+  it("does not delete replacement mappings when clearing which-key action entries", function()
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    })
+    local added_spec
+    with_package_loaded("which-key", {
+      add = function(spec)
+        added_spec = spec
+        for _, entry in ipairs(spec) do
+          if entry[2] then
+            vim.keymap.set("n", entry[1], entry[2], { buffer = entry.buffer, desc = entry.desc })
+          end
+        end
+      end,
+      show = function() end,
+    }, function()
+      vim.api.nvim_set_current_buf(page.buf)
+      vim.api.nvim_win_set_cursor(0, { 8, 0 })
+      vim.fn.maparg("a", "n", false, true).callback()
+    end)
+
+    local start
+    for _, entry in ipairs(added_spec or {}) do
+      if entry.desc == "start" then
+        start = entry
+      end
+    end
+    truthy(start)
+    local replaced = false
+    vim.keymap.set("n", start[1], function()
+      replaced = true
+    end, { buffer = page.buf })
+    start[2]()
+    vim.fn.maparg(start[1], "n", false, true).callback()
+    eq(true, replaced)
+    pcall(vim.keymap.del, "n", start[1], { buffer = page.buf })
+  end)
+
+  it("falls back to vim.ui.select when which-key action menus are disabled", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    require("neovim-docker.config").setup({
+      integrations = {
+        which_key = {
+          enabled = false,
+        },
+      },
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
+    local added = false
+    with_package_loaded("which-key", {
+      add = function()
+        added = true
+      end,
+      show = function() end,
+    }, function()
+      with_select(function(items, _, callback)
+        eq(true, vim.tbl_contains(items, "start"))
+        callback("start")
+      end, function()
+        vim.api.nvim_set_current_buf(page.buf)
+        vim.api.nvim_win_set_cursor(0, { 8, 0 })
+        vim.fn.maparg("a", "n", false, true).callback()
+      end)
+    end)
+
+    eq(false, added)
+    eq({ "docker", "start", "abc" }, ran_actions[1])
+  end)
+
+  it("falls back to vim.ui.select when which-key action menus are turned off", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    require("neovim-docker.config").setup({
+      integrations = {
+        which_key = {
+          action_menu = false,
+        },
+      },
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
+    with_package_loaded("which-key", {
+      add = function()
+        error("which-key should not be used")
+      end,
+      show = function() end,
+    }, function()
+      with_select(function(_, _, callback)
+        callback("stop")
+      end, function()
+        vim.api.nvim_set_current_buf(page.buf)
+        vim.api.nvim_win_set_cursor(0, { 8, 0 })
+        vim.fn.maparg("a", "n", false, true).callback()
+      end)
+    end)
+
+    eq({ "docker", "stop", "abc" }, ran_actions[1])
+  end)
+
+  it("falls back to vim.ui.select when which-key errors", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    with_package_loaded("which-key", {
+      add = function()
+        error("which-key failed")
+      end,
+      show = function() end,
+    }, function()
+      with_select(function(items, _, callback)
+        eq(true, vim.tbl_contains(items, "restart"))
+        callback("restart")
+      end, function()
+        vim.api.nvim_set_current_buf(page.buf)
+        vim.api.nvim_win_set_cursor(0, { 8, 0 })
+        vim.fn.maparg("a", "n", false, true).callback()
+      end)
+    end)
+
+    eq({ "docker", "restart", "abc" }, ran_actions[1])
+  end)
+
+  it("falls back to vim.ui.select when which-key show errors", function()
+    local ran_actions = {}
+    local page = setup_container_view({
+      '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+    }, function(args)
+      ran_actions[#ran_actions + 1] = args
+    end)
+    with_package_loaded("which-key", {
+      add = function() end,
+      show = function()
+        error("which-key show failed")
+      end,
+    }, function()
+      with_select(function(items, _, callback)
+        eq(true, vim.tbl_contains(items, "stop"))
+        callback("stop")
+      end, function()
+        vim.api.nvim_set_current_buf(page.buf)
+        vim.api.nvim_win_set_cursor(0, { 8, 0 })
+        vim.fn.maparg("a", "n", false, true).callback()
+      end)
+    end)
+
+    eq({ "docker", "stop", "abc" }, ran_actions[1])
+  end)
+
   it("opens volumes from the container action menu", function()
     local ran_actions = {}
     local page = setup_container_view({
@@ -423,6 +677,17 @@ describe("views", function()
     }, function(args)
       ran_actions[#ran_actions + 1] = args
     end)
+    require("neovim-docker.config").setup({
+      integrations = {
+        which_key = {
+          action_menu = false,
+        },
+      },
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
+    })
     local original_select = vim.ui.select
     vim.ui.select = function(items, _, callback)
       eq(true, vim.tbl_contains(items, "volumes"))
@@ -441,6 +706,17 @@ describe("views", function()
   it("keeps the volumes jump available on compose group action menus", function()
     local page = setup_container_view({
       '{"ID":"abc","Names":"demo-api-1","Image":"app","State":"running","Status":"Up","Labels":"com.docker.compose.project=demo,com.docker.compose.service=api"}',
+    })
+    require("neovim-docker.config").setup({
+      integrations = {
+        which_key = {
+          action_menu = false,
+        },
+      },
+      notify = function() end,
+      confirm = function()
+        return true
+      end,
     })
     local original_select = vim.ui.select
     vim.ui.select = function(items, _, callback)
@@ -482,6 +758,11 @@ describe("views", function()
       end,
     })
     require("neovim-docker.config").setup({
+      integrations = {
+        which_key = {
+          action_menu = false,
+        },
+      },
       notify = function() end,
       confirm = function()
         return true
