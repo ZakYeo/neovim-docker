@@ -645,7 +645,7 @@ local function which_key_action_menu(page, names, by_label)
     { prefix, group = "Docker actions", buffer = page.buf, mode = "n" },
   }
   local suffix_index = 1
-  for index, name in ipairs(names) do
+  for _, name in ipairs(names) do
     local lhs
     lhs, suffix_index = next_action_menu_lhs(prefix, page.buf, suffix_index)
     if lhs then
