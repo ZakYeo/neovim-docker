@@ -602,16 +602,6 @@ local function buffer_mapping(buf, lhs)
   return nil
 end
 
-local function clear_which_key_action_maps(page)
-  for _, entry in ipairs(page.which_key_action_maps or {}) do
-    local mapping = buffer_mapping(page.buf, entry.lhs)
-    if mapping and mapping.callback == entry.callback then
-      pcall(vim.keymap.del, "n", entry.lhs, { buffer = page.buf })
-    end
-  end
-  page.which_key_action_maps = {}
-end
-
 local function has_buffer_mapping(buf, lhs)
   return buffer_mapping(buf, lhs) ~= nil
 end
@@ -627,9 +617,14 @@ local function next_action_menu_lhs(prefix, buf, suffix_index)
   return nil, suffix_index
 end
 
-local function which_key_action_menu(page, names, by_label)
+local function action_name_by_index(page, index)
+  local names = action_menu_entries(page)
+  return names[index]
+end
+
+local function setup_which_key_action_menu(page)
   local which_key = which_key_action_menu_enabled()
-  if not which_key or type(which_key.add) ~= "function" or type(which_key.show) ~= "function" then
+  if not which_key or type(which_key.add) ~= "function" then
     return false
   end
 
@@ -639,61 +634,50 @@ local function which_key_action_menu(page, names, by_label)
     return false
   end
 
-  clear_which_key_action_maps(page)
-
   local spec = {
     { prefix, group = "Docker actions", buffer = page.buf, mode = "n" },
   }
+  local names = action_menu_entries(page)
   local suffix_index = 1
+  local action_index = 1
   for _, name in ipairs(names) do
     local lhs
     lhs, suffix_index = next_action_menu_lhs(prefix, page.buf, suffix_index)
     if lhs then
+      local current_action_index = action_index
       local callback = function()
-        clear_which_key_action_maps(page)
-        run_page_action(page, by_label[name])
+        local action_name = action_name_by_index(page, current_action_index)
+        if action_name then
+          run_page_action(page, action_name)
+        end
       end
       spec[#spec + 1] = {
         lhs,
         callback,
-        desc = name,
+        desc = function()
+          return action_name_by_index(page, current_action_index) or ""
+        end,
         buffer = page.buf,
         mode = "n",
       }
-      page.which_key_action_maps = page.which_key_action_maps or {}
-      page.which_key_action_maps[#page.which_key_action_maps + 1] = { lhs = lhs, callback = callback }
+      action_index = action_index + 1
     end
   end
 
-  if not page.which_key_action_maps or #page.which_key_action_maps == 0 then
+  if #spec == 1 then
     return false
   end
 
   local ok = pcall(which_key.add, spec)
   if not ok then
-    clear_which_key_action_maps(page)
     return false
   end
 
-  ok = pcall(which_key.show, { keys = prefix, mode = "n", buffer = page.buf, delay = 0 })
-  if not ok then
-    clear_which_key_action_maps(page)
-    return false
-  end
-
-  vim.defer_fn(function()
-    if vim.api.nvim_buf_is_valid(page.buf) then
-      clear_which_key_action_maps(page)
-    end
-  end, 10000)
   return true
 end
 
 local function action_menu(page)
   local names, by_label = action_menu_entries(page)
-  if which_key_action_menu(page, names, by_label) then
-    return
-  end
 
   vim.ui.select(names, { prompt = "Docker action" }, function(choice)
     if choice then
@@ -723,9 +707,11 @@ local function attach_keymaps(page)
   map(page.buf, maps.sort, function()
     sort(page)
   end, "Docker sort")
-  map(page.buf, maps.action_menu, function()
-    action_menu(page)
-  end, "Docker action menu")
+  if not setup_which_key_action_menu(page) then
+    map(page.buf, maps.action_menu, function()
+      action_menu(page)
+    end, "Docker action menu")
+  end
   map(page.buf, maps.help, function()
     help(page)
   end, "Docker help")
