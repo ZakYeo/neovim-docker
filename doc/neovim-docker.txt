@@ -51,6 +51,8 @@ CONFIGURATION                                           *neovim-docker-config*
   require("neovim-docker").setup({
     docker_cmd = "docker",
     compose_cmd = { "docker", "compose" },
+    log_tail = 200,
+    log_max_lines = 5000,
     timeout = 30000,
     refresh_interval = 0,
     ui = {
@@ -63,7 +65,16 @@ CONFIGURATION                                           *neovim-docker-config*
   })
 <
 
-Use ui.open to route Docker buffers through a preferred tab or buffer plugin.
+Docker pages are listed nofile buffers with unique meaningful docker:// names
+by default, so bufferline/tabline plugins that show listed buffers can display
+them. Parent app configs that hide nofile buffers or custom URI schemes may
+need filters adjusted. Use ui.open to route Docker buffers through a preferred
+tab or buffer plugin. Custom ui.open hooks should display the buffer
+synchronously so Docker navigation can track the shown window. Return false
+when the hook intentionally declines to open the buffer; that page will not be
+added to navigation history. log_tail controls the initial docker logs --tail
+value. log_max_lines bounds the retained live log output lines in memory while
+docker logs --follow runs. Invalid values fall back to the default cap.
 
 ==============================================================================
 BUFFER KEYS                                             *neovim-docker-keys*
@@ -74,6 +85,9 @@ x       Clear the active filter.
 o       Cycle sort columns.
 a       Open the action menu.
 ?       Open page help.
+CTRL-O  Move back through Docker pages/details/help/logs when still open.
+CTRL-I  Move forward through Docker pages/details/help/logs when still open.
+b       Go back from the help page.
 i       Inspect/open details.
 l       Tail logs where supported.
 e       Exec into a container where supported.

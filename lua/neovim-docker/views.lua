@@ -160,7 +160,7 @@ local function render(page)
       .. " | sort: "
       .. (page.state.sort_column or "<none>")
       .. (page.state.sort_desc and " desc" or " asc"),
-    "keys: r refresh  / filter  x clear  o sort  a actions  ? help  q close",
+    "keys: r refresh  / filter  x clear  o sort  a actions  l logs  ? help  <C-o>/<C-i> back/forward  q close",
     "",
   }
 
@@ -316,7 +316,7 @@ local function run_page_action(page, action_key)
 end
 
 local function help(page)
-  details.open("Docker Page Help", {
+  local buf = details.open("Docker Page Help", {
     ok = true,
     stdout = {
       page.spec.title,
@@ -332,9 +332,18 @@ local function help(page)
       "s/S/R start/stop/restart where supported",
       "d remove/down where supported",
       "p prune where supported",
+      "b go back to the previous Docker page",
+      "<C-o>/<C-i> move backward/forward through Docker pages",
       "q close",
     },
   })
+  if buf then
+    vim.keymap.set("n", "b", function()
+      if not ui.back() then
+        ui.focus(page.buf)
+      end
+    end, { buffer = buf, silent = true, desc = "Docker help back" })
+  end
 end
 
 local function filter(page)
@@ -472,7 +481,7 @@ function M.open(kind, opts)
       end)
     end)
   end
-  vim.api.nvim_create_autocmd("BufWipeout", {
+  vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
     buffer = page.buf,
     once = true,
     callback = function()

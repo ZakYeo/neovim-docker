@@ -31,6 +31,7 @@ local files = {
   "actions_spec",
   "init_spec",
   "views_spec",
+  "logs_spec",
   "exec_spec",
   "async_spec",
   "table_spec",
