@@ -451,6 +451,7 @@ describe("views", function()
     local ran_actions = {}
     local page
     local added_spec
+    local shown
     with_package_loaded("which-key", {
       add = function(spec)
         added_spec = spec
@@ -460,8 +461,8 @@ describe("views", function()
           end
         end
       end,
-      show = function()
-        error("which-key.show should not be called")
+      show = function(opts)
+        shown = opts
       end,
     }, function()
       page = setup_container_view({
@@ -480,8 +481,50 @@ describe("views", function()
     truthy(start)
     vim.api.nvim_set_current_buf(page.buf)
     vim.api.nvim_win_set_cursor(0, { 8, 0 })
-    start[2]()
+    eq(1, vim.fn.maparg("a", "n", false, true).nowait)
+    vim.fn.maparg("a", "n", false, true).callback()
+    eq({
+      keys = "a",
+      mode = "n",
+      buffer = page.buf,
+      global = false,
+      delay = 0,
+    }, shown)
+    vim.fn.maparg(start[1], "n", false, true).callback()
     eq({ "docker", "start", "abc" }, ran_actions[1])
+  end)
+
+  it("falls back to vim.ui.select when which-key show errors", function()
+    local ran_actions = {}
+    local page
+    with_package_loaded("which-key", {
+      add = function(spec)
+        for _, entry in ipairs(spec) do
+          if entry[2] then
+            vim.keymap.set("n", entry[1], entry[2], { buffer = entry.buffer, desc = entry.desc })
+          end
+        end
+      end,
+      show = function()
+        error("which-key show failed")
+      end,
+    }, function()
+      page = setup_container_view({
+        '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',
+      }, function(args)
+        ran_actions[#ran_actions + 1] = args
+      end)
+      with_select(function(items, _, callback)
+        eq(true, vim.tbl_contains(items, "stop"))
+        callback("stop")
+      end, function()
+        vim.api.nvim_set_current_buf(page.buf)
+        vim.api.nvim_win_set_cursor(0, { 8, 0 })
+        vim.fn.maparg("a", "n", false, true).callback()
+      end)
+    end)
+
+    eq({ "docker", "stop", "abc" }, ran_actions[1])
   end)
 
   it("falls back to vim.ui.select when which-key action menus are disabled", function()
@@ -556,6 +599,7 @@ describe("views", function()
       add = function()
         error("which-key failed")
       end,
+      show = function() end,
     }, function()
       page = setup_container_view({
         '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Status":"Up","Labels":""}',

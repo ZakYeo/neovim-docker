@@ -622,9 +622,24 @@ local function action_name_by_index(page, index)
   return names[index]
 end
 
+local action_menu
+
+local function show_which_key_action_menu(page, which_key, prefix)
+  local ok = pcall(which_key.show, {
+    keys = prefix,
+    mode = "n",
+    buffer = page.buf,
+    global = false,
+    delay = 0,
+  })
+  if not ok then
+    action_menu(page)
+  end
+end
+
 local function setup_which_key_action_menu(page)
   local which_key = which_key_action_menu_enabled()
-  if not which_key or type(which_key.add) ~= "function" then
+  if not which_key or type(which_key.add) ~= "function" or type(which_key.show) ~= "function" then
     return false
   end
 
@@ -673,10 +688,14 @@ local function setup_which_key_action_menu(page)
     return false
   end
 
+  vim.keymap.set("n", prefix, function()
+    show_which_key_action_menu(page, which_key, prefix)
+  end, { buffer = page.buf, nowait = true, silent = true, desc = "Docker action menu" })
+
   return true
 end
 
-local function action_menu(page)
+function action_menu(page)
   local names, by_label = action_menu_entries(page)
 
   vim.ui.select(names, { prompt = "Docker action" }, function(choice)

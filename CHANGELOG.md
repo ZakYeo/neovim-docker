@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.11] - 2026-05-11
+
+### Fixed
+
+- Fixed which-key Docker action menus not opening when pressing the action-menu key.
+
 ## [0.1.10] - 2026-05-10
 
 ### Fixed
