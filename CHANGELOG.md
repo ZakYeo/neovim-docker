@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.12] - 2026-05-11
+
+### Fixed
+
+- Stabilized stable Neovim CI coverage for the which-key Docker action menu fix.
+
 ## [0.1.11] - 2026-05-11
 
 ### Fixed
