@@ -19,6 +19,18 @@ describe("views", function()
     end
   end
 
+  local function add_which_key_mappings(spec)
+    for _, entry in ipairs(spec) do
+      if entry[2] then
+        local desc = entry.desc
+        if type(desc) == "function" then
+          desc = desc()
+        end
+        vim.keymap.set("n", entry[1], entry[2], { buffer = entry.buffer, desc = desc })
+      end
+    end
+  end
+
   local function setup_container_view(stdout, on_run, setup_opts)
     local docker = require("neovim-docker.docker")
     docker.setup({
@@ -455,11 +467,7 @@ describe("views", function()
     with_package_loaded("which-key", {
       add = function(spec)
         added_spec = spec
-        for _, entry in ipairs(spec) do
-          if entry[2] then
-            vim.keymap.set("n", entry[1], entry[2], { buffer = entry.buffer, desc = entry.desc })
-          end
-        end
+        add_which_key_mappings(spec)
       end,
       show = function(opts)
         shown = opts
@@ -499,11 +507,7 @@ describe("views", function()
     local page
     with_package_loaded("which-key", {
       add = function(spec)
-        for _, entry in ipairs(spec) do
-          if entry[2] then
-            vim.keymap.set("n", entry[1], entry[2], { buffer = entry.buffer, desc = entry.desc })
-          end
-        end
+        add_which_key_mappings(spec)
       end,
       show = function()
         error("which-key show failed")
