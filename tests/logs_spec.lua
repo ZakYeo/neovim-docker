@@ -59,7 +59,6 @@ describe("logs", function()
 
   it("bounds retained live log output lines", function()
     require("neovim-docker.config").setup({
-      docker_cmd = { "sh", "-c", "printf 'one\\ntwo\\nthree\\nfour\\nfive\\n'" },
       log_max_lines = 3,
       ui = {
         open = function() end,
@@ -67,11 +66,9 @@ describe("logs", function()
       notify = function() end,
     })
 
-    local buf = require("neovim-docker.logs").open("web", { tail = 1 })
-    truthy(buf and vim.api.nvim_buf_is_valid(buf))
-    vim.wait(1000, function()
-      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      return vim.tbl_contains(lines, "five")
+    local buf
+    with_stubbed_logs({ "one", "two", "three", "four", "five", "" }, function()
+      buf = require("neovim-docker.logs").open("web", { tail = 1 })
     end)
 
     local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
