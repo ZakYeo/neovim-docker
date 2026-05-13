@@ -46,7 +46,7 @@ local defaults = {
     },
     which_key = {
       enabled = "auto",
-      action_menu = true,
+      action_menu = false,
     },
   },
   keymaps = {

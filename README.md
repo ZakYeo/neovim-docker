@@ -102,6 +102,43 @@ return {
 }
 ```
 
+Docker page action menus use `vim.ui.select` by default, even when `which-key.nvim` is installed. To opt into buffer-local which-key action shortcuts, enable the integration in `neovim-docker` and let which-key trigger on the action-menu prefix. The plugin registers the Docker action mappings with `require("which-key").add`; it does not call `which-key.show` from a keymap.
+
+```lua
+return {
+  {
+    "zakye/neovim-docker",
+    opts = {
+      integrations = {
+        which_key = {
+          action_menu = true,
+        },
+      },
+    },
+  },
+  {
+    "folke/which-key.nvim",
+    opts = {
+      triggers = {
+        { "<auto>", mode = "nixsotc" },
+        { "a", mode = "n" }, -- match neovim-docker's default buffer action_menu key
+      },
+      spec = {
+        { "<leader>D", group = "docker" },
+      },
+    },
+  },
+}
+```
+
+If you configure which-key outside plugin specs, use `add` for static Docker groups:
+
+```lua
+require("which-key").add({
+  { "<leader>D", group = "docker" },
+})
+```
+
 ### Optional Telescope keys
 
 Telescope is optional. If it is installed, these commands open picker-based entrypoints:
@@ -156,7 +193,7 @@ require("neovim-docker").setup({
     },
     which_key = {
       enabled = "auto", -- auto, true, or false
-      action_menu = true, -- use which-key for page action menus when available
+      action_menu = false, -- opt into registering which-key page action shortcuts
     },
   },
   keymaps = {
@@ -184,7 +221,7 @@ require("neovim-docker").setup({
 
 Custom `ui.open` hooks should display `page.buf` synchronously so Docker navigation can track the shown window. Return `false` when the hook intentionally declines to open the buffer; that page will not be added to navigation history.
 
-When `which-key.nvim` is installed, Docker action menus use a which-key popup by default. Set `integrations.which_key.enabled = false` or `integrations.which_key.action_menu = false` to keep the `vim.ui.select` action picker.
+Docker action menus use `vim.ui.select` by default. Set `integrations.which_key.action_menu = true` to register buffer-local which-key action shortcuts for Docker pages; configure which-key `opts.triggers` for the action-menu prefix if you want which-key to display those shortcuts.
 
 ## Commands
 

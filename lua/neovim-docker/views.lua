@@ -624,22 +624,9 @@ end
 
 local action_menu
 
-local function show_which_key_action_menu(page, which_key, prefix)
-  local ok = pcall(which_key.show, {
-    keys = prefix,
-    mode = "n",
-    buffer = page.buf,
-    global = false,
-    delay = 0,
-  })
-  if not ok then
-    action_menu(page)
-  end
-end
-
 local function setup_which_key_action_menu(page)
   local which_key = which_key_action_menu_enabled()
-  if not which_key or type(which_key.add) ~= "function" or type(which_key.show) ~= "function" then
+  if not which_key or type(which_key.add) ~= "function" then
     return false
   end
 
@@ -688,10 +675,6 @@ local function setup_which_key_action_menu(page)
     return false
   end
 
-  vim.keymap.set("n", prefix, function()
-    show_which_key_action_menu(page, which_key, prefix)
-  end, { buffer = page.buf, nowait = true, silent = true, desc = "Docker action menu" })
-
   return true
 end
 
@@ -705,9 +688,10 @@ function action_menu(page)
   end)
 end
 
-local function map(buf, lhs, fn, desc)
+local function map(buf, lhs, fn, desc, opts)
   if lhs and lhs ~= "" then
-    vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = true, silent = true, desc = desc })
+    opts = opts or {}
+    vim.keymap.set("n", lhs, fn, { buffer = buf, nowait = opts.nowait ~= false, silent = true, desc = desc })
   end
 end
 
@@ -726,11 +710,10 @@ local function attach_keymaps(page)
   map(page.buf, maps.sort, function()
     sort(page)
   end, "Docker sort")
-  if not setup_which_key_action_menu(page) then
-    map(page.buf, maps.action_menu, function()
-      action_menu(page)
-    end, "Docker action menu")
-  end
+  local registered_which_key_actions = setup_which_key_action_menu(page)
+  map(page.buf, maps.action_menu, function()
+    action_menu(page)
+  end, "Docker action menu", { nowait = not registered_which_key_actions })
   map(page.buf, maps.help, function()
     help(page)
   end, "Docker help")

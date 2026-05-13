@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.13] - 2026-05-13
+
+### Changed
+
+- Restored Docker action menus to `vim.ui.select` by default, with which-key action shortcuts available only by opt-in registration.
+- Removed manual `which-key.show` usage from Docker action-menu mappings.
+
 ## [0.1.12] - 2026-05-11
 
 ### Fixed
