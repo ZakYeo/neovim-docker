@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning.
 
+## [0.1.14] - 2026-05-13
+
+### Fixed
+
+- Avoided mapping the default action-menu key when which-key action shortcuts are registered, so the prefix remains available to which-key.
+
 ## [0.1.13] - 2026-05-13
 
 ### Changed
